@@ -38,7 +38,7 @@ export default function AdminPage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
   const currentUserId = currentUser._id || currentUser.id
-  const token = localStorage.getItem("token")
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
   const router = useRouter()
 
   useEffect(() => {
@@ -64,10 +64,7 @@ export default function AdminPage() {
 
   // Đổi role user
   const handleChangeRole = async (userId, newRole) => {
-    if (userId === currentUserId) {
-      alert("Không thể thay đổi quyền của chính bạn!")
-      return
-    }
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
     const res = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
       method: "PATCH",
       headers: {
@@ -93,6 +90,7 @@ export default function AdminPage() {
       alert("Không thể thay đổi trạng thái của chính bạn!")
       return
     }
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
     const res = await fetch(`http://localhost:5000/api/users/${userId}/status`, {
       method: "PATCH",
       headers: {
@@ -118,10 +116,14 @@ export default function AdminPage() {
       alert("Không thể xóa chính bạn!")
       return
     }
+    // Chỉ xác nhận ở đây
     if (!window.confirm("Bạn có chắc chắn muốn xóa user này?")) return
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
     const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
       method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     })
     if (res.ok) {
       setUsers((prev) => prev.filter((u) => u._id !== userId))
@@ -156,6 +158,24 @@ export default function AdminPage() {
       alert("Thêm AI Key thành công!")
     } else {
       alert("Lỗi khi thêm AI Key")
+    }
+  }
+
+  const handleAiImageChange = async (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      const formData = new FormData()
+      formData.append("image", file)
+      const res = await fetch("http://localhost:5000/api/upload/avatar", {
+        method: "POST",
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.url) {
+        setAiForm({ ...aiForm, image: data.url })
+        // Sau khi upload avatar thành công, gọi lại fetchUsers()
+        await fetchUsers()
+      }
     }
   }
 
@@ -253,11 +273,7 @@ export default function AdminPage() {
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => {
-                              if (confirm("Bạn có chắc muốn xóa người dùng này?")) {
-                                handleDeleteUser(user._id)
-                              }
-                            }}
+                            onClick={() => handleDeleteUser(user._id)}
                           >
                             <Icon icon="mdi:delete" className="w-4 h-4" />
                           </Button>
@@ -306,6 +322,15 @@ export default function AdminPage() {
                     <input name="referer" value={aiForm.referer} onChange={handleAiFormChange} placeholder="HTTP-Referer (optional)" />
                     <input name="title" value={aiForm.title} onChange={handleAiFormChange} placeholder="X-Title (optional)" />
                   </>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAiImageChange}
+                  className="col-span-1 md:col-span-2"
+                />
+                {aiForm.image && (
+                  <img src={aiForm.image} alt="avatar" className="w-12 h-12 rounded-full mt-2" />
                 )}
                 <button type="submit" className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded">Lưu ChatBot</button>
               </form>

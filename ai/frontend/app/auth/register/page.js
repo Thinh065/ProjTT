@@ -10,15 +10,43 @@ import { Label } from "@/components/ui/label"
 import { Icon } from "@iconify/react"
 
 export default function RegisterPage() {
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState("")
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
+    avatar: "",
   })
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
   const router = useRouter()
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setAvatarPreview(URL.createObjectURL(file))
+      const form = new FormData()
+      form.append("image", file)
+      const res = await fetch("http://localhost:5000/api/upload/avatar", {
+        method: "POST",
+        body: form,
+      })
+      const data = await res.json()
+      if (data.url) {
+        setFormData((prev) => ({ ...prev, avatar: data.url }))
+      }
+    }
+  }
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    })
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -35,6 +63,7 @@ export default function RegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
+          avatar: formData.avatar, // gửi avatar url
         }),
       })
       const data = await res.json()
@@ -47,32 +76,52 @@ export default function RegisterPage() {
     setLoading(false)
   }
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    })
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-            <Icon icon="mdi:robot" className="w-6 h-6 text-white" />
-          </div>
           <CardTitle className="text-2xl font-bold">Đăng ký</CardTitle>
           <CardDescription>Tạo tài khoản Multi ChatBot AI mới</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
+            {/* Khung tròn chọn ảnh đại diện, click được */}
+            <div className="flex justify-center mb-2">
+              <label
+                htmlFor="avatar"
+                className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center shadow cursor-pointer hover:opacity-80 transition"
+                style={{ position: "relative" }}
+              >
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="avatar preview"
+                    className="w-24 h-24 rounded-full object-cover"
+                  />
+                ) : (
+                  <Icon icon="mdi:robot" className="w-12 h-12 text-gray-400" />
+                )}
+                <input
+                  id="avatar"
+                  name="avatar"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+                {/* Icon máy ảnh nhỏ góc dưới nếu muốn */}
+                <span className="absolute bottom-2 right-2 bg-white rounded-full p-1 shadow">
+                  <Icon icon="mdi:camera" className="w-5 h-5 text-gray-500" />
+                </span>
+              </label>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Họ và tên</Label>
               <Input
                 id="name"
                 name="name"
                 type="text"
-                placeholder="Nguyễn Văn A"
+                placeholder="Nguyễn Văn T"
                 value={formData.name}
                 onChange={handleChange}
                 required

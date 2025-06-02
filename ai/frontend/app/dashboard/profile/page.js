@@ -71,19 +71,27 @@ export default function ProfilePage() {
     }, 1000)
   }
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const updatedUser = {
-          ...user,
-          avatar: e.target.result,
-        }
-        localStorage.setItem("user", JSON.stringify(updatedUser))
-        setUser(updatedUser)
+      const formData = new FormData()
+      formData.append("avatar", file)
+      const token = localStorage.getItem("token")
+      const user = JSON.parse(localStorage.getItem("user") || "{}")
+      // SỬA ĐÚNG endpoint:
+      const res = await fetch(`http://localhost:5000/api/users/${user._id}/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const data = await res.json()
+      if (data.avatar || data.user?.avatar) {
+        // Cập nhật localStorage và state
+        const newUser = { ...user, avatar: data.avatar || data.user.avatar }
+        localStorage.setItem("user", JSON.stringify(newUser))
+        setUser(newUser)
+        // Nếu dùng context hoặc redux, cũng cần cập nhật ở đó
       }
-      reader.readAsDataURL(file)
     }
   }
 

@@ -72,7 +72,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center space-x-3">
               <Avatar>
-                <AvatarImage src={user?.avatar || "/placeholder.svg"} />
+                <AvatarImage src={user.avatar || "/placeholder.svg"} />
                 <AvatarFallback>{user?.name?.charAt(0)?.toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

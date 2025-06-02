@@ -55,59 +55,61 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     }
     onChatUpdate(updatedChat)
 
-    // Mock AI response
-    setTimeout(
-      () => {
-        const aiMessage = {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: generateMockResponse(input, bot),
-          timestamp: new Date(),
-        }
+    // Gọi API thật tới backend
+    try {
+      const res = await fetch("http://localhost:5000/api/chatbot/dynamic", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: bot.model,
+          messages: newMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+          apiKey: bot.apiKey,
+          baseURL: bot.baseURL,
+          referer: bot.referer,
+          title: bot.title,
+        }),
+      })
 
-        const finalMessages = [...newMessages, aiMessage]
-        setMessages(finalMessages)
-        setIsTyping(false)
+      const data = await res.json()
+      console.log("AI response:", data) // Thêm dòng này để kiểm tra dữ liệu trả về
+      let aiContent =
+        data?.choices?.[0]?.message?.content ||
+        data?.message?.content ||
+        data?.message ||
+        "Không nhận được phản hồi từ AI."
 
-        // Update chat with AI response
-        const finalChat = {
-          ...updatedChat,
-          messages: finalMessages,
-          lastMessage: aiMessage.content,
-          updatedAt: new Date().toISOString(),
-        }
-        onChatUpdate(finalChat)
-      },
-      1000 + Math.random() * 2000,
-    )
-  }
+      const aiMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: aiContent,
+        timestamp: new Date(),
+      }
 
-  const generateMockResponse = (userInput, bot) => {
-    const responses = {
-      "gpt-4": [
-        "Tôi hiểu câu hỏi của bạn. Đây là một chủ đề thú vị và tôi sẽ cố gắng giải thích một cách chi tiết.",
-        "Dựa trên kinh nghiệm và kiến thức của tôi, tôi có thể đưa ra một số gợi ý hữu ích cho bạn.",
-        "Đây là một câu hỏi hay! Hãy để tôi phân tích và đưa ra câu trả lời phù hợp nhất.",
-      ],
-      claude: [
-        "Cảm ơn bạn đã hỏi! Tôi sẽ cố gắng trả lời một cách rõ ràng và hữu ích.",
-        "Đây là một vấn đề thú vị. Tôi sẽ chia sẻ quan điểm và kiến thức của mình về chủ đề này.",
-        "Tôi rất vui được giúp bạn. Hãy để tôi giải thích từng bước một cách chi tiết.",
-      ],
-      gemini: [
-        "Tôi có thể giúp bạn với câu hỏi này. Đây là những thông tin mà tôi nghĩ sẽ hữu ích.",
-        "Dựa trên dữ liệu và kiến thức đa phương thức, tôi có thể đưa ra câu trả lời toàn diện.",
-        "Đây là một chủ đề mà tôi có nhiều thông tin để chia sẻ. Hãy cùng khám phá nhé!",
-      ],
-      llama: [
-        "Là một mô hình mã nguồn mở, tôi sẽ cố gắng đưa ra câu trả lời minh bạch và hữu ích.",
-        "Tôi hiểu câu hỏi của bạn và sẽ chia sẻ kiến thức một cách chi tiết.",
-        "Đây là một câu hỏi thú vị! Tôi sẽ cung cấp thông tin dựa trên dữ liệu huấn luyện của mình.",
-      ],
+      const finalMessages = [...newMessages, aiMessage]
+      setMessages(finalMessages)
+      setIsTyping(false)
+
+      // Update chat with AI response
+      const finalChat = {
+        ...updatedChat,
+        messages: finalMessages,
+        lastMessage: aiMessage.content,
+        updatedAt: new Date().toISOString(),
+      }
+      onChatUpdate(finalChat)
+    } catch (error) {
+      const aiMessage = {
+        id: Date.now() + 1,
+        role: "assistant",
+        content: "Đã xảy ra lỗi khi gọi AI: " + error.message,
+        timestamp: new Date(),
+      }
+      setMessages([...newMessages, aiMessage])
+      setIsTyping(false)
     }
-
-    const botResponses = responses[bot?.id] || responses["gpt-4"]
-    return botResponses[Math.floor(Math.random() * botResponses.length)]
   }
 
   const formatTime = (timestamp) => {

@@ -19,7 +19,7 @@ export default function BotSelector({ bots, selectedBot, onSelectBot, onNewChat 
       <div className="space-y-2">
         {bots.map((bot) => (
           <Card
-            key={bot.id}
+            key={bot._id}
             className={cn(
               "cursor-pointer transition-all hover:shadow-md",
               selectedBot?.id === bot.id ? "ring-2 ring-primary" : "",
