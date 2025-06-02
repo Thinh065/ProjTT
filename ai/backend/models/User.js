@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
   password: String,
   role: { type: String, default: "user" },
   status: { type: String, default: "active" },
-  avatar: String,
+  avatar: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now }
 })
 

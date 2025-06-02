@@ -9,38 +9,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat }) 
   const [chatHistory, setChatHistory] = useState([])
 
   useEffect(() => {
-    // Mock chat history - thay thế bằng API call thực tế
-    const mockHistory = [
-      {
-        id: 1,
-        title: "Hỏi về lập trình React",
-        bot: { id: "gpt-4", name: "GPT-4" },
-        lastMessage: "Cảm ơn bạn đã giải thích!",
-        updatedAt: "2024-01-15T10:30:00Z",
-        messageCount: 8,
-      },
-      {
-        id: 2,
-        title: "Tư vấn thiết kế UI/UX",
-        bot: { id: "claude", name: "Claude" },
-        lastMessage: "Tôi sẽ thử áp dụng những gợi ý này.",
-        updatedAt: "2024-01-14T15:45:00Z",
-        messageCount: 12,
-      },
-      {
-        id: 3,
-        title: "Học machine learning",
-        bot: { id: "gemini", name: "Gemini" },
-        lastMessage: "Bạn có thể giải thích thêm về neural networks không?",
-        updatedAt: "2024-01-13T09:20:00Z",
-        messageCount: 15,
-      },
-    ]
-
-    // Filter by selected bot if any
-    const filteredHistory = selectedBot ? mockHistory.filter((chat) => chat.bot.id === selectedBot.id) : mockHistory
-
-    setChatHistory(filteredHistory)
+    setChatHistory([])
   }, [selectedBot])
 
   const formatDate = (dateString) => {

@@ -1,51 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import ChatInterface from "@/components/chat/ChatInterface"
+import { useEffect, useState } from "react"
 import BotSelector from "@/components/chat/BotSelector"
 import ChatHistory from "@/components/chat/ChatHistory"
+import ChatInterface from "@/components/chat/ChatInterface"
 
 export default function DashboardPage() {
+  const [bots, setBots] = useState([])
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  const bots = [
-    {
-      id: "gpt-4",
-      name: "GPT-4",
-      description: "Mô hình AI tiên tiến nhất của OpenAI",
-      icon: "simple-icons:openai",
-      color: "bg-green-500",
-    },
-    {
-      id: "claude",
-      name: "Claude",
-      description: "AI Assistant thông minh từ Anthropic",
-      icon: "simple-icons:anthropic",
-      color: "bg-orange-500",
-    },
-    {
-      id: "gemini",
-      name: "Gemini",
-      description: "AI đa phương thức từ Google",
-      icon: "simple-icons:google",
-      color: "bg-blue-500",
-    },
-    {
-      id: "llama",
-      name: "Llama 2",
-      description: "Mô hình mã nguồn mở từ Meta",
-      icon: "simple-icons:meta",
-      color: "bg-purple-500",
-    },
-  ]
-
+  // Lấy danh sách ChatBot từ backend
   useEffect(() => {
-    if (bots.length > 0 && !selectedBot) {
-      setSelectedBot(bots[0])
-    }
-  }, [bots, selectedBot])
+    fetch("http://localhost:5000/api/apikeys")
+      .then((res) => res.json())
+      .then((data) => {
+        setBots(data)
+        if (data.length > 0) setSelectedBot(data[0])
+      })
+  }, [])
 
   const handleNewChat = () => {
     setCurrentChat({
@@ -57,6 +31,9 @@ export default function DashboardPage() {
     })
   }
 
+  const referer = window.location.origin
+  const title = document.title || "Multi ChatBot AI"
+
   return (
     <div className="flex h-full">
       {/* Bot Selector */}
@@ -64,7 +41,6 @@ export default function DashboardPage() {
         <BotSelector bots={bots} selectedBot={selectedBot} onSelectBot={setSelectedBot} onNewChat={handleNewChat} />
         <ChatHistory selectedBot={selectedBot} currentChat={currentChat} onSelectChat={setCurrentChat} />
       </div>
-
       {/* Chat Interface */}
       <div className="flex-1">
         {selectedBot ? (
@@ -73,8 +49,8 @@ export default function DashboardPage() {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="text-gray-400 text-6xl mb-4">🤖</div>
-              <h2 className="text-xl font-semibold text-gray-600 mb-2">Chọn một ChatBot để bắt đầu</h2>
-              <p className="text-gray-500">Chọn một trong các ChatBot AI để bắt đầu cuộc trò chuyện</p>
+              <h2 className="text-xl font-semibold text-gray-600 mb-2">Chưa có ChatBot nào</h2>
+              <p className="text-gray-500">Hãy thêm ChatBot AI trong trang quản trị để bắt đầu sử dụng</p>
             </div>
           </div>
         )}
