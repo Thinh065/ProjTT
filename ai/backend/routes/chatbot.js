@@ -28,16 +28,24 @@ router.post("/openrouter", async (req, res) => {
 
 // Route động nhận mọi tham số và gọi API bất kỳ
 router.post("/dynamic", async (req, res) => {
-  try {
-    const { model, messages, apiKey, baseURL, referer, title } = req.body
+  const { model, messages, apiKey, baseURL } = req.body;
+  if (!model || !messages || !apiKey || !baseURL) {
+    return res.status(400).json({ error: "Missing required fields" });
+  }
 
-    const response = await fetch(baseURL, {
+  try {
+    // Đảm bảo baseURL là https://openrouter.ai/api/v1/chat/completions
+    const endpoint = baseURL.endsWith("/chat/completions")
+      ? baseURL
+      : baseURL.replace(/\/$/, "") + "/chat/completions";
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
-        ...(referer && { "HTTP-Referer": referer }),
-        ...(title && { "X-Title": title }),
+        ...(req.body.referer && { "HTTP-Referer": req.body.referer }),
+        ...(req.body.title && { "X-Title": req.body.title }),
       },
       body: JSON.stringify({
         model,
@@ -45,12 +53,15 @@ router.post("/dynamic", async (req, res) => {
       }),
     })
 
-    if (!response.ok) {
-      const error = await response.text()
-      return res.status(response.status).json({ error })
+    let data
+    if (response.ok) {
+      data = await response.json()
+    } else {
+      const errorText = await response.text()
+      console.error("OpenRouter error:", errorText)
+      return res.status(response.status).json({ error: { message: errorText } })
     }
 
-    const data = await response.json()
     res.json(data)
   } catch (err) {
     console.error("Chatbot dynamic error:", err)

@@ -20,6 +20,7 @@
     "multer": "^2.0.0",
     "multer-storage-cloudinary": "^4.0.0",
     "node-fetch": "^3.3.2",
-    "openai": "^5.0.1"
+    "openai": "^5.0.1",
+    "react-markdown": "^10.1.0"
   }
 }

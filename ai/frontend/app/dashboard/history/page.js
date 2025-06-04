@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,93 +12,54 @@ export default function HistoryPage() {
   const [chatHistory, setChatHistory] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedBot, setSelectedBot] = useState("all")
+  const [bots, setBots] = useState([])
   const [filteredHistory, setFilteredHistory] = useState([])
 
-  const bots = [
-    { id: "all", name: "Tất cả", color: "bg-gray-500" },
-    { id: "gpt-4", name: "GPT-4", color: "bg-green-500" },
-    { id: "claude", name: "Claude", color: "bg-orange-500" },
-    { id: "gemini", name: "Gemini", color: "bg-blue-500" },
-    { id: "llama", name: "Llama 2", color: "bg-purple-500" },
-  ]
+  useEffect(() => {
+    // Đọc đúng key theo bot
+    const historyKey = selectedBot === "all"
+      ? "chatHistory"
+      : `chatHistory_${selectedBot}`;
+    const history = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    setChatHistory(history);
+  }, [selectedBot])
 
   useEffect(() => {
-    // Mock chat history data
-    const mockHistory = [
-      {
-        id: 1,
-        title: "Hỏi về lập trình React",
-        bot: { id: "gpt-4", name: "GPT-4", color: "bg-green-500" },
-        lastMessage: "Cảm ơn bạn đã giải thích!",
-        createdAt: "2024-01-15T10:30:00Z",
-        updatedAt: "2024-01-15T11:45:00Z",
-        messageCount: 8,
-        preview: "Tôi muốn học React từ đầu, bạn có thể hướng dẫn tôi không?",
-      },
-      {
-        id: 2,
-        title: "Tư vấn thiết kế UI/UX",
-        bot: { id: "claude", name: "Claude", color: "bg-orange-500" },
-        lastMessage: "Tôi sẽ thử áp dụng những gợi ý này.",
-        createdAt: "2024-01-14T15:45:00Z",
-        updatedAt: "2024-01-14T16:20:00Z",
-        messageCount: 12,
-        preview: "Làm thế nào để thiết kế một giao diện người dùng thân thiện?",
-      },
-      {
-        id: 3,
-        title: "Học machine learning",
-        bot: { id: "gemini", name: "Gemini", color: "bg-blue-500" },
-        lastMessage: "Bạn có thể giải thích thêm về neural networks không?",
-        createdAt: "2024-01-13T09:20:00Z",
-        updatedAt: "2024-01-13T10:15:00Z",
-        messageCount: 15,
-        preview: "Tôi muốn bắt đầu học machine learning, nên bắt đầu từ đâu?",
-      },
-      {
-        id: 4,
-        title: "Tối ưu hóa database",
-        bot: { id: "gpt-4", name: "GPT-4", color: "bg-green-500" },
-        lastMessage: "Index này sẽ giúp tăng tốc độ query đáng kể.",
-        createdAt: "2024-01-12T14:30:00Z",
-        updatedAt: "2024-01-12T15:45:00Z",
-        messageCount: 6,
-        preview: "Database của tôi chạy chậm, làm sao để tối ưu hóa?",
-      },
-      {
-        id: 5,
-        title: "Viết content marketing",
-        bot: { id: "claude", name: "Claude", color: "bg-orange-500" },
-        lastMessage: "Bài viết này rất hay, cảm ơn bạn!",
-        createdAt: "2024-01-11T11:15:00Z",
-        updatedAt: "2024-01-11T12:30:00Z",
-        messageCount: 10,
-        preview: "Tôi cần viết content cho chiến dịch marketing, bạn có thể giúp không?",
-      },
-    ]
-
-    setChatHistory(mockHistory)
-  }, [])
+    fetch("http://localhost:5000/api/apikeys")
+      .then((res) => res.json())
+      .then(setBots);
+  }, []);
 
   useEffect(() => {
     let filtered = chatHistory
 
-    // Filter by bot
+    // Lọc theo bot đã chọn
     if (selectedBot !== "all") {
-      filtered = filtered.filter((chat) => chat.bot.id === selectedBot)
-    }
-
-    // Filter by search term
-    if (searchTerm) {
       filtered = filtered.filter(
         (chat) =>
-          chat.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          chat.preview.toLowerCase().includes(searchTerm.toLowerCase()),
+          chat.bot &&
+          (chat.bot._id === selectedBot || chat.bot.id === selectedBot)
       )
     }
 
+    // Lọc theo từ khóa tìm kiếm
+    if (searchTerm) {
+      filtered = filtered.filter(
+        (chat) =>
+          chat.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          chat.preview?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Lọc chỉ các bot còn tồn tại
+    filtered = filtered.filter(
+      (chat) =>
+        chat.bot &&
+        bots.some((bot) => bot._id === (chat.bot._id || chat.bot.id))
+    )
+
     setFilteredHistory(filtered)
-  }, [chatHistory, selectedBot, searchTerm])
+  }, [chatHistory, selectedBot, searchTerm, bots])
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
@@ -113,7 +74,10 @@ export default function HistoryPage() {
 
   const handleDeleteChat = (chatId) => {
     if (confirm("Bạn có chắc muốn xóa cuộc trò chuyện này?")) {
-      setChatHistory(chatHistory.filter((chat) => chat.id !== chatId))
+      const historyKey = selectedBot === "all" ? "chatHistory" : `chatHistory_${selectedBot}`;
+      const newHistory = chatHistory.filter((chat) => chat.id !== chatId);
+      setChatHistory(newHistory);
+      localStorage.setItem(historyKey, JSON.stringify(newHistory));
     }
   }
 
@@ -158,19 +122,30 @@ export default function HistoryPage() {
 
       {/* Bot Filter */}
       <div className="flex flex-wrap gap-2 mb-6">
+        <Button
+          key="all"
+          variant={selectedBot === "all" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSelectedBot("all")}
+        >
+          Tất cả
+        </Button>
         {bots.map((bot) => (
           <Button
-            key={bot.id}
-            variant={selectedBot === bot.id ? "default" : "outline"}
+            key={bot._id}
+            variant={selectedBot === bot._id ? "default" : "outline"}
             size="sm"
-            onClick={() => setSelectedBot(bot.id)}
+            onClick={() => setSelectedBot(bot._id)}
             className="flex items-center space-x-2"
           >
-            {bot.id !== "all" && <div className={cn("w-3 h-3 rounded-full", bot.color)} />}
             <span>{bot.name}</span>
           </Button>
         ))}
       </div>
+
+      <h3 className="text-xl font-semibold mb-4">
+        Lịch sử trò chuyện - {selectedBot !== "all" ? bots.find(bot => bot._id === selectedBot)?.name : "Tất cả"}
+      </h3>
 
       {/* Chat History Grid */}
       {filteredHistory.length === 0 ? (
@@ -187,8 +162,8 @@ export default function HistoryPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredHistory.map((chat) => (
-            <Card key={chat.id} className="hover:shadow-lg transition-shadow">
+          {filteredHistory.map((chat, idx) => (
+            <Card key={chat.id || chat._id || idx} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -229,7 +204,15 @@ export default function HistoryPage() {
                   <span>{formatDate(chat.updatedAt)}</span>
                 </div>
                 <div className="mt-3">
-                  <Button variant="outline" size="sm" className="w-full">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      localStorage.setItem("currentChat", JSON.stringify(chat));
+                      window.location.href = "/dashboard";
+                    }}
+                  >
                     <Icon icon="mdi:eye" className="w-4 h-4 mr-2" />
                     Xem chi tiết
                   </Button>

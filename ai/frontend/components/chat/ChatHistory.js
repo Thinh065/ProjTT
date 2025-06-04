@@ -1,16 +1,28 @@
 "use client"
+import { useRouter } from "next/navigation"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
-export default function ChatHistory({ selectedBot, currentChat, onSelectChat }) {
+export default function ChatHistory({ selectedBot, currentChat, onSelectChat, redirectToDashboard, chats }) {
+  const router = useRouter()
   const [chatHistory, setChatHistory] = useState([])
 
   useEffect(() => {
-    setChatHistory([])
-  }, [selectedBot])
+    const historyKey = "chatHistory";
+    const allHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    if (selectedBot) {
+      setChatHistory(allHistory.filter(
+        (chat) =>
+          (chat.bot?._id && chat.bot._id === selectedBot._id) ||
+          (chat.bot?.id && chat.bot.id === selectedBot.id)
+      ));
+    } else {
+      setChatHistory([]);
+    }
+  }, [selectedBot]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
@@ -33,6 +45,19 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat }) 
     }
   }
 
+  const handleSelectChat = (chat) => {
+    if (redirectToDashboard) {
+      const botId = chat.bot?.id || chat.bot?._id;
+      if (!botId) {
+        alert("Bot không hợp lệ!");
+        return;
+      }
+      router.push(`/dashboard?botId=${botId}&chatId=${chat.id}`);
+    } else if (onSelectChat) {
+      onSelectChat(chat);
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="p-4">
@@ -41,21 +66,21 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat }) 
           {selectedBot && ` - ${selectedBot.name}`}
         </h3>
 
-        {chatHistory.length === 0 ? (
+        {(Array.isArray(chats) && chats.length === 0) ? (
           <div className="text-center py-8">
             <Icon icon="mdi:chat-outline" className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-500">Chưa có cuộc trò chuyện nào</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {chatHistory.map((chat) => (
+            {(Array.isArray(chats) ? chats : []).map((chat) => (
               <div
                 key={chat.id}
                 className={cn(
                   "p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors group",
                   currentChat?.id === chat.id ? "bg-blue-50 border-blue-200" : "border-gray-200",
                 )}
-                onClick={() => onSelectChat(chat)}
+                onClick={() => handleSelectChat(chat)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
