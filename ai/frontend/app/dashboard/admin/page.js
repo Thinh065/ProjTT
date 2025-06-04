@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,11 +40,19 @@ export default function AdminPage() {
   const currentUserId = currentUser._id || currentUser.id
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
   const router = useRouter()
+  const chatbotRef = useRef(null);
 
   useEffect(() => {
     fetchUsers()
     fetchAiKeys()
   }, [])
+
+  useEffect(() => {
+    // Scroll xuống phần ChatBot khi vào trang
+    if (chatbotRef.current) {
+      chatbotRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, []);
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -198,7 +206,7 @@ export default function AdminPage() {
   if (loading) return <div>Đang tải...</div>
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-6 h-screen overflow-auto">
       <h1 className="text-3xl font-bold mb-6">Quản trị hệ thống</h1>
 
       <div className="grid gap-6">
@@ -304,7 +312,7 @@ export default function AdminPage() {
         </Card>
 
         {/* AI Key Management */}
-        <Card className="mt-8">
+        <Card className="mt-8" ref={chatbotRef}>
           <CardHeader>
             <CardTitle>Quản lý ChatBot</CardTitle>
             <CardDescription>Thêm và quản lý các ChatBot AI cho hệ thống</CardDescription>
@@ -319,7 +327,10 @@ export default function AdminPage() {
               </Button>
             </div>
             {showAiForm && (
-              <form className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6" onSubmit={handleAddAiKey}>
+              <form
+                className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-6 bg-white rounded-xl shadow border border-gray-200"
+                onSubmit={handleAddAiKey}
+              >
                 <input name="name" value={aiForm.name} onChange={handleAiFormChange} placeholder="Tên AI" required />
                 <input name="apiKey" value={aiForm.apiKey} onChange={handleAiFormChange} placeholder="API Key" required />
                 <input name="baseURL" value={aiForm.baseURL} onChange={handleAiFormChange} placeholder="Base URL" required />
