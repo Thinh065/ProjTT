@@ -179,6 +179,22 @@ export default function AdminPage() {
     }
   }
 
+  const handleDeleteBot = async (botId) => {
+    await fetch(`http://localhost:5000/api/apikeys/${botId}`, { method: "DELETE" });
+    // Xóa lịch sử liên quan
+    const historyKey = "chatHistory";
+    let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    chatHistory = chatHistory.filter((chat) => chat.bot._id !== botId && chat.bot.id !== botId);
+    localStorage.setItem(historyKey, JSON.stringify(chatHistory));
+    // Xóa cả cuộc hội thoại đang dở nếu thuộc bot này
+    const currentKey = "currentChat";
+    let currentChat = JSON.parse(localStorage.getItem(currentKey) || "null");
+    if (currentChat && (currentChat.bot?._id === botId || currentChat.bot?.id === botId)) {
+      localStorage.removeItem(currentKey);
+    }
+    fetchAiKeys();
+  };
+
   if (loading) return <div>Đang tải...</div>
 
   return (
@@ -353,8 +369,7 @@ export default function AdminPage() {
                         variant="destructive"
                         onClick={async () => {
                           if (confirm("Bạn có chắc muốn xóa ChatBot này?")) {
-                            await fetch(`http://localhost:5000/api/apikeys/${ai._id}`, { method: "DELETE" })
-                            fetchAiKeys()
+                            await handleDeleteBot(ai._id) // Gọi đúng hàm đã xử lý xóa lịch sử
                           }
                         }}
                       >
