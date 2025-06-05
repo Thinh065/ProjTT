@@ -96,6 +96,12 @@ export default function DashboardPage() {
 
   // Khi chọn một cuộc hội thoại từ lịch sử
   const handleSelectChat = (chat) => {
+    if (!chat) {
+      setCurrentChat(null)
+      setSelectedBot(null)
+      localStorage.removeItem("currentChat")
+      return
+    }
     setCurrentChat(chat)
     setSelectedBot(chat.bot)
     newChatRef.current = null
@@ -139,6 +145,30 @@ export default function DashboardPage() {
     newChatRef.current = null
   }
 
+  const handleDeleteChat = (chatId) => {
+    // Xóa khỏi state
+    const newHistory = chatHistory.filter((chat) => chat.id !== chatId)
+    setChatHistory(newHistory)
+    // Xóa khỏi "chatHistory" tổng
+    localStorage.setItem("chatHistory", JSON.stringify(newHistory))
+
+    // Xóa khỏi tất cả các key chatHistory_<botId>
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("chatHistory_"))
+      .forEach((key) => {
+        const chats = JSON.parse(localStorage.getItem(key) || "[]")
+        const filtered = chats.filter((chat) => chat.id !== chatId)
+        localStorage.setItem(key, JSON.stringify(filtered))
+      })
+
+    // Nếu đang xem chat vừa xóa thì reset
+    if (currentChat?.id === chatId) {
+      setCurrentChat(null)
+      setSelectedBot(null)
+      localStorage.removeItem("currentChat")
+    }
+  }
+
   return (
     <div className="flex h-screen">
       <div className="w-1/4 border-r flex flex-col">
@@ -152,6 +182,7 @@ export default function DashboardPage() {
           currentChat={currentChat}
           onSelectChat={handleSelectChat}
           chats={chatHistory}
+          onDeleteChat={handleDeleteChat}
         />
       </div>
       <div className="flex-1 flex flex-col bg-gray-50">
