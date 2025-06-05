@@ -1,14 +1,16 @@
 "use client"
 import { useRouter } from "next/navigation"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
-export default function ChatHistory({ selectedBot, currentChat, onSelectChat, redirectToDashboard, chats }) {
+export default function ChatHistory({ selectedBot, currentChat, onSelectChat, redirectToDashboard, chats, onDeleteChat }) {
   const router = useRouter()
   const [chatHistory, setChatHistory] = useState([])
+  const [ConfirmDialog, showCustomConfirm] = useConfirmDialog()
 
   useEffect(() => {
     const historyKey = "chatHistory";
@@ -35,14 +37,14 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
     return date.toLocaleDateString("vi-VN")
   }
 
-  const handleDeleteChat = (chatId, e) => {
+  const handleDelete = (chatId, e) => {
     e.stopPropagation()
-    if (confirm("Bạn có chắc muốn xóa cuộc trò chuyện này?")) {
-      setChatHistory(chatHistory.filter((chat) => chat.id !== chatId))
-      if (currentChat?.id === chatId) {
-        onSelectChat(null)
+    showCustomConfirm({
+      message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
+      onConfirm: () => {
+        onDeleteChat(chatId)
       }
-    }
+    })
   }
 
   const handleSelectChat = (chat) => {
@@ -95,7 +97,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
                     variant="ghost"
                     size="sm"
                     className="opacity-0 group-hover:opacity-100 transition-opacity ml-2"
-                    onClick={(e) => handleDeleteChat(chat.id, e)}
+                    onClick={(e) => handleDelete(chat.id, e)}
                   >
                     <Icon icon="mdi:delete" className="w-4 h-4 text-red-500" />
                   </Button>
@@ -104,6 +106,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
             ))}
           </div>
         )}
+        {ConfirmDialog}
       </div>
     </div>
   )
