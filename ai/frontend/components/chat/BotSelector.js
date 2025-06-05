@@ -1,19 +1,14 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
-export default function BotSelector({ bots, selectedBot, onSelectBot, onNewChat }) {
+export default function BotSelector({ bots, selectedBot, onSelectBot }) {
   return (
     <div className="p-4 border-b border-gray-200">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">ChatBot AI</h2>
-        <Button size="sm" onClick={onNewChat}>
-          <Icon icon="mdi:plus" className="w-4 h-4 mr-2" />
-          Chat mới
-        </Button>
       </div>
 
       <div className="space-y-2">
