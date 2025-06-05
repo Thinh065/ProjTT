@@ -4,11 +4,13 @@ import { useState, useEffect } from "react"
 import BotSelector from "@/components/chat/BotSelector"
 import ChatHistory from "@/components/chat/ChatHistory"
 import ChatInterface from "@/components/chat/ChatInterface"
+import { Icon } from "@iconify/react"
 
 export default function DashboardPage() {
   const [bots, setBots] = useState([])
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
+  const [chatHistory, setChatHistory] = useState([])
 
   // Load bots từ API
   useEffect(() => {
@@ -17,24 +19,25 @@ export default function DashboardPage() {
       .then(setBots)
   }, [])
 
-  // Khi chọn bot mới, reset currentChat về null hoặc chat mới của bot đó
+  // Load lịch sử chat từ localStorage
+  useEffect(() => {
+    const allHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]")
+    setChatHistory(allHistory)
+  }, [])
+
+  // Lưu lịch sử chat vào localStorage khi chatHistory thay đổi
+  useEffect(() => {
+    localStorage.setItem("chatHistory", JSON.stringify(chatHistory))
+  }, [chatHistory])
+
+  // Khi chọn bot mới, lấy chat gần nhất với bot đó hoặc tạo chat mới
   const handleSelectBot = (bot) => {
     setSelectedBot(bot)
-    // Lấy lịch sử chat của bot này nếu có
-    const historyKey = "chatHistory"
-    const allHistory = JSON.parse(localStorage.getItem(historyKey) || "[]")
-    const botChat = allHistory.find(
-      (c) => {
-        if (!c.bot || !bot) return false;
-        // So sánh theo _id nếu cả hai đều có _id
-        if (c.bot._id && bot._id && c.bot._id === bot._id) return true;
-        // So sánh theo id nếu cả hai đều có id
-        if (c.bot.id && bot.id && c.bot.id === bot.id) return true;
-        return false;
-      }
+    const botChats = chatHistory.filter(
+      (c) => c.bot && ((c.bot._id && bot._id && c.bot._id === bot._id) || (c.bot.id && bot.id && c.bot.id === bot.id))
     )
-    if (botChat) {
-      setCurrentChat(botChat)
+    if (botChats.length > 0) {
+      setCurrentChat(botChats[botChats.length - 1])
     } else {
       setCurrentChat({
         id: Date.now(),
@@ -57,11 +60,32 @@ export default function DashboardPage() {
   // Khi gửi tin nhắn hoặc nhận phản hồi AI
   const handleChatUpdate = (chat) => {
     setCurrentChat(chat)
+    // Cập nhật vào lịch sử (nếu đã có id)
+    setChatHistory((prev) => {
+      const filtered = prev.filter((c) => c.id !== chat.id)
+      return [...filtered, chat]
+    })
   }
 
-  const handleReset = () => {
-    setCurrentChat(null)
-    setSelectedBot(null)
+  // Xử lý nút "Chat mới"
+  const handleNewChat = () => {
+    // Lưu chat hiện tại vào lịch sử nếu có tin nhắn
+    if (currentChat && currentChat.messages && currentChat.messages.length > 0) {
+      setChatHistory((prev) => {
+        const filtered = prev.filter((c) => c.id !== currentChat.id)
+        return [...filtered, currentChat]
+      })
+    }
+    // Tạo chat mới rỗng với bot đang chọn
+    setCurrentChat({
+      id: Date.now(),
+      bot: selectedBot,
+      messages: [],
+      title: "",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messageCount: 0,
+    })
   }
 
   return (
@@ -71,12 +95,12 @@ export default function DashboardPage() {
           bots={bots}
           selectedBot={selectedBot}
           onSelectBot={handleSelectBot}
-          onNewChat={() => handleSelectBot(selectedBot)}
         />
         <ChatHistory
           selectedBot={selectedBot}
           currentChat={currentChat}
           onSelectChat={handleSelectChat}
+          chatHistory={chatHistory}
         />
       </div>
       <div className="flex-1 flex flex-col bg-gray-50">
@@ -85,12 +109,15 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-bold text-gray-800">
             {selectedBot ? selectedBot.name : "Chọn ChatBot"}
           </h2>
-          <button
-            onClick={handleReset}
-            className="ml-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded transition font-semibold shadow"
-          >
-            Reset
-          </button>
+          {selectedBot && (
+            <button
+              onClick={handleNewChat}
+              className="ml-4 px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded transition font-semibold shadow flex items-center"
+            >
+              <Icon icon="mdi:plus" className="w-4 h-4 mr-2" />
+              Chat mới
+            </button>
+          )}
         </div>
         {/* Nội dung chat cuộn, tiêu đề KHÔNG cuộn */}
         <div className="flex-1 overflow-y-auto">

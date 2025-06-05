@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messages = chat?.messages || [];
@@ -202,8 +203,28 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                 )}
               >
                 {msg.role === "assistant" ? (
-                  <div className="prose prose-sm break-words">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  <div className="prose prose-sm break-words max-w-full">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        pre: ({node, ...props}) => (
+                          <pre
+                            className="overflow-x-auto bg-gray-200 rounded p-3 my-2 text-sm"
+                            style={{ maxWidth: "100%" }}
+                            {...props}
+                          />
+                        ),
+                        code: ({node, ...props}) => (
+                          <code
+                            className="bg-gray-300 rounded px-1"
+                            style={{ fontSize: "95%" }}
+                            {...props}
+                          />
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   </div>
                 ) : (
                   msg.content
