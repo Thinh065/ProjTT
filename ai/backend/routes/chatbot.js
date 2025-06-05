@@ -2,7 +2,6 @@ const express = require("express")
 const router = express.Router()
 const OpenAI = require("openai")
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const Chat = require("../models/Chat") // Tạo model Chat nếu chưa có
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -68,20 +67,6 @@ router.post("/dynamic", async (req, res) => {
     console.error("Chatbot dynamic error:", err)
     res.status(500).json({ error: err.message, stack: err.stack })
   }
-})
-
-// Lưu lịch sử chat
-router.post("/history", async (req, res) => {
-  const { userId, chat } = req.body
-  // Lưu chat vào DB, ví dụ:
-  const saved = await Chat.create({ userId, ...chat })
-  res.json(saved)
-})
-
-// Lấy lịch sử chat
-router.get("/history/:userId", async (req, res) => {
-  const chats = await Chat.find({ userId: req.params.userId })
-  res.json(chats)
 })
 
 module.exports = router
