@@ -6,7 +6,8 @@ const apiKeySchema = new mongoose.Schema({
   baseURL: { type: String, required: true },     // Base URL
   model: { type: String },                       // Model (nếu có)
   image: { type: String },                       // Ảnh đại diện (nếu có)
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  hidden: { type: Boolean, default: false }     // Trường ẩn (mặc định là false)
 })
 
 module.exports = mongoose.model("ApiKey", apiKeySchema)

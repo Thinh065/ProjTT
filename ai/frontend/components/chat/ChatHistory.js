@@ -1,37 +1,32 @@
 "use client"
 import { useRouter } from "next/navigation"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
-
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
-export default function ChatHistory({ selectedBot, currentChat, onSelectChat, redirectToDashboard, chats, onDeleteChat }) {
+export default function ChatHistory({ onDeleteChat, selectedBot, currentChat, onSelectChat, redirectToDashboard, chats }) {
   const router = useRouter()
-  const [chatHistory, setChatHistory] = useState([])
-  const [ConfirmDialog, showCustomConfirm] = useConfirmDialog()
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
-  useEffect(() => {
-    const historyKey = "chatHistory";
-    const allHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    if (selectedBot) {
-      setChatHistory(allHistory.filter(
+  // Lọc lịch sử chat theo bot được chọn
+  const filteredHistory = selectedBot
+    ? (chats || []).filter(
         (chat) =>
           (chat.bot?._id && chat.bot._id === selectedBot._id) ||
           (chat.bot?.id && chat.bot.id === selectedBot.id)
-      ));
-    } else {
-      setChatHistory([]);
-    }
-  }, [selectedBot]);
+      )
+    : []
+
+  // Loại trùng id
+  const uniqueHistory = Array.from(new Set(filteredHistory.map(a => a.id)))
+    .map(id => filteredHistory.find(a => a.id === id))
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = Math.abs(now - date)
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
     if (diffDays === 1) return "Hôm qua"
     if (diffDays < 7) return `${diffDays} ngày trước`
     return date.toLocaleDateString("vi-VN")
@@ -39,11 +34,9 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
 
   const handleDelete = (chatId, e) => {
     e.stopPropagation()
-    showCustomConfirm({
+    showConfirm({
       message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
-      onConfirm: () => {
-        onDeleteChat(chatId)
-      }
+      onConfirm: () => onDeleteChat(chatId)
     })
   }
 
@@ -68,14 +61,14 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
           {selectedBot && ` - ${selectedBot.name}`}
         </h3>
 
-        {(Array.isArray(chats) && chats.length === 0) ? (
+        {(uniqueHistory.length === 0) ? (
           <div className="text-center py-8">
             <Icon icon="mdi:chat-outline" className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-sm text-gray-500">Chưa có cuộc trò chuyện nào</p>
           </div>
         ) : (
           <div className="space-y-2">
-            {(Array.isArray(chats) ? chats : []).map((chat) => (
+            {uniqueHistory.map((chat) => (
               <div
                 key={chat.id}
                 className={cn(

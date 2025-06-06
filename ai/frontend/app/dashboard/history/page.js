@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function HistoryPage() {
   const [chatHistory, setChatHistory] = useState([])
@@ -14,6 +15,7 @@ export default function HistoryPage() {
   const [selectedBot, setSelectedBot] = useState("all")
   const [bots, setBots] = useState([])
   const [filteredHistory, setFilteredHistory] = useState([])
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
   useEffect(() => {
     // Đọc đúng key theo bot
@@ -73,12 +75,33 @@ export default function HistoryPage() {
   }
 
   const handleDeleteChat = (chatId) => {
-    if (confirm("Bạn có chắc muốn xóa cuộc trò chuyện này?")) {
-      const historyKey = selectedBot === "all" ? "chatHistory" : `chatHistory_${selectedBot}`;
-      const newHistory = chatHistory.filter((chat) => chat.id !== chatId);
-      setChatHistory(newHistory);
-      localStorage.setItem(historyKey, JSON.stringify(newHistory));
-    }
+    showConfirm({
+      message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
+      onConfirm: () => {
+        // Xóa khỏi "chatHistory" tổng
+        let allHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]")
+        allHistory = allHistory.filter((chat) => chat.id !== chatId)
+        localStorage.setItem("chatHistory", JSON.stringify(allHistory))
+
+        // Xóa khỏi tất cả các key chatHistory_<botId>
+        Object.keys(localStorage)
+          .filter((key) => key.startsWith("chatHistory_"))
+          .forEach((key) => {
+            const chats = JSON.parse(localStorage.getItem(key) || "[]")
+            const filtered = chats.filter((chat) => chat.id !== chatId)
+            localStorage.setItem(key, JSON.stringify(filtered))
+          })
+
+        // Nếu đang xem chat vừa xóa thì reset
+        const currentChat = JSON.parse(localStorage.getItem("currentChat") || "null")
+        if (currentChat?.id === chatId) {
+          localStorage.removeItem("currentChat")
+        }
+
+        // Cập nhật lại state để giao diện đồng bộ
+        setChatHistory((prev) => prev.filter((chat) => chat.id !== chatId))
+      }
+    })
   }
 
   const handleExportChat = (chat) => {
@@ -222,6 +245,8 @@ export default function HistoryPage() {
           ))}
         </div>
       )}
+
+      {ConfirmDialog}
     </div>
   )
 }
