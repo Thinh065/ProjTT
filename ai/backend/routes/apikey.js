@@ -20,4 +20,19 @@ router.get("/", async (req, res) => {
   res.json(bots)
 })
 
+// Tạm ẩn hoặc hiện ChatBot
+router.patch("/:id/hide", async (req, res) => {
+  const { hidden } = req.body
+  const bot = await ApiKey.findByIdAndUpdate(req.params.id, { hidden }, { new: true })
+  if (!bot) return res.status(404).json({ message: "Không tìm thấy ChatBot" })
+  res.json(bot)
+})
+
+// Xóa ChatBot
+router.delete("/:id", async (req, res) => {
+  const bot = await ApiKey.findByIdAndDelete(req.params.id)
+  if (!bot) return res.status(404).json({ message: "Không tìm thấy ChatBot" })
+  res.json({ message: "Đã xóa ChatBot" })
+})
+
 module.exports = router

@@ -164,7 +164,6 @@ export default function DashboardPage() {
     // Nếu đang xem chat vừa xóa thì reset
     if (currentChat?.id === chatId) {
       setCurrentChat(null)
-      setSelectedBot(null)
       localStorage.removeItem("currentChat")
     }
   }

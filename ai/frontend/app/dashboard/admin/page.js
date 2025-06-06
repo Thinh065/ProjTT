@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function AdminPage() {
   const [users, setUsers] = useState([])
@@ -41,6 +42,7 @@ export default function AdminPage() {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
   const router = useRouter()
   const chatbotRef = useRef(null);
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
   useEffect(() => {
     fetchUsers()
@@ -119,26 +121,31 @@ export default function AdminPage() {
   }
 
   // Xóa user
-  const handleDeleteUser = async (userId) => {
-    if (userId === currentUserId) {
-      alert("Không thể xóa chính bạn!")
-      return
-    }
-    // Chỉ xác nhận ở đây
-    if (!window.confirm("Bạn có chắc chắn muốn xóa user này?")) return
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
-    const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+  const handleDeleteUser = (userId) => {
+    showConfirm({
+      message: "Bạn có chắc chắn muốn xóa user này?",
+      onConfirm: async () => {
+        if (userId === currentUserId) {
+          alert("Không thể xóa chính bạn!")
+          return
+        }
+        // Chỉ xác nhận ở đây
+        if (!window.confirm("Bạn có chắc chắn muốn xóa user này?")) return
+        const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
+        const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        if (res.ok) {
+          setUsers((prev) => prev.filter((u) => u._id !== userId))
+        } else {
+          const data = await res.json()
+          alert(data.message || "Lỗi khi xóa user")
+        }
+      }
     })
-    if (res.ok) {
-      setUsers((prev) => prev.filter((u) => u._id !== userId))
-    } else {
-      const data = await res.json()
-      alert(data.message || "Lỗi khi xóa user")
-    }
   }
 
   const handleAiFormChange = (e) => {
@@ -187,228 +194,231 @@ export default function AdminPage() {
     }
   }
 
-  const handleDeleteBot = async (botId) => {
-    await fetch(`http://localhost:5000/api/apikeys/${botId}`, { method: "DELETE" });
-    // Xóa lịch sử liên quan
-    const historyKey = "chatHistory";
-    let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    chatHistory = chatHistory.filter((chat) => chat.bot._id !== botId && chat.bot.id !== botId);
-    localStorage.setItem(historyKey, JSON.stringify(chatHistory));
-    // Xóa cả cuộc hội thoại đang dở nếu thuộc bot này
-    const currentKey = "currentChat";
-    let currentChat = JSON.parse(localStorage.getItem(currentKey) || "null");
-    if (currentChat && (currentChat.bot?._id === botId || currentChat.bot?.id === botId)) {
-      localStorage.removeItem(currentKey);
-    }
-    fetchAiKeys();
-  };
+  // Xóa ChatBot
+  const handleDeleteBot = (botId) => {
+    showConfirm({
+      message: "Bạn có chắc muốn xóa ChatBot này?",
+      onConfirm: async () => {
+        await fetch(`http://localhost:5000/api/apikeys/${botId}`, { method: "DELETE" })
+        fetchAiKeys()
+      }
+    })
+  }
+
+  // Tạm ẩn/hiện ChatBot
+  const handleToggleHideBot = (bot) => {
+    showConfirm({
+      message: bot.hidden
+        ? "Bạn có chắc muốn hiện lại ChatBot này?"
+        : "Bạn có chắc muốn tạm ẩn ChatBot này?",
+      onConfirm: async () => {
+        await fetch(`http://localhost:5000/api/apikeys/${bot._id}/hide`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hidden: !bot.hidden }),
+        })
+        fetchAiKeys()
+      }
+    })
+  }
 
   if (loading) return <div>Đang tải...</div>
 
   return (
-    <div className="container mx-auto p-6 h-screen overflow-auto">
-      <h1 className="text-3xl font-bold mb-6">Quản trị hệ thống</h1>
+    <>
+      <div className="container mx-auto p-6 h-screen overflow-auto">
+        <h1 className="text-3xl font-bold mb-6">Quản trị hệ thống</h1>
 
-      <div className="grid gap-6">
-        {/* User Management */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quản lý người dùng</CardTitle>
-            <CardDescription>Quản lý tài khoản và phân quyền người dùng</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Người dùng</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                  <TableHead>Trạng thái</TableHead>
-                  <TableHead>Ngày tạo</TableHead>
-                  <TableHead>Thao tác</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user._id}>
-                    <TableCell className="flex items-center space-x-3">
-                      <Avatar>
-                        <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                        <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium">{user.name}</span>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.role === "admin" ? "default" : "secondary"}>
-                        {user.role === "admin" ? "Quản trị viên" : "Người dùng"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.status === "active" ? "default" : "destructive"}>
-                        {user.status === "active" ? "Hoạt động" : "Bị chặn"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{user.createdAt}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {/* Nút block/unblock */}
-                        {user._id !== currentUserId && (
-                          user.status === "active" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChangeStatus(user._id, "blocked")}
-                            >
-                              <Icon icon="mdi:block-helper" className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChangeStatus(user._id, "active")}
-                            >
-                              <Icon icon="mdi:check" className="w-4 h-4" />
-                            </Button>
-                          )
-                        )}
-                        {/* Nút nâng/hạ quyền */}
-                        {user._id !== currentUserId && (
-                          user.role === "admin" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChangeRole(user._id, "user")}
-                            >
-                              <Icon icon="mdi:arrow-down" className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChangeRole(user._id, "admin")}
-                            >
-                              <Icon icon="mdi:arrow-up" className="w-4 h-4" />
-                            </Button>
-                          )
-                        )}
-                        {/* Nút xóa */}
-                        {user._id !== currentUserId && (
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteUser(user._id)}
-                          >
-                            <Icon icon="mdi:delete" className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
+        <div className="grid gap-6">
+          {/* User Management */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quản lý người dùng</CardTitle>
+              <CardDescription>Quản lý tài khoản và phân quyền người dùng</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Người dùng</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Vai trò</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead>Thao tác</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* AI Key Management */}
-        <Card className="mt-8" ref={chatbotRef}>
-          <CardHeader>
-            <CardTitle>Quản lý ChatBot</CardTitle>
-            <CardDescription>Thêm và quản lý các ChatBot AI cho hệ thống</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-6">
-              <Button
-                className="bg-blue-600 text-white"
-                onClick={() => setShowAiForm((v) => !v)}
-              >
-                {showAiForm ? "Đóng" : "Thêm ChatBot"}
-              </Button>
-            </div>
-            {showAiForm && (
-              <form
-                className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-6 bg-white rounded-xl shadow border border-gray-200"
-                onSubmit={handleAddAiKey}
-              >
-                <input name="name" value={aiForm.name} onChange={handleAiFormChange} placeholder="Tên AI" required />
-                <input name="apiKey" value={aiForm.apiKey} onChange={handleAiFormChange} placeholder="API Key" required />
-                <input name="baseURL" value={aiForm.baseURL} onChange={handleAiFormChange} placeholder="Base URL" required />
-                <input name="model" value={aiForm.model} onChange={handleAiFormChange} placeholder="Model" required />
-                <Button
-                  type="button"
-                  className="col-span-1 md:col-span-2"
-                  variant="outline"
-                  onClick={() => setShowAdvanced((v) => !v)}
-                >
-                  {showAdvanced ? "Ẩn trường nâng cao" : "Hiện trường nâng cao"}
-                </Button>
-                {showAdvanced && (
-                  <>
-                    <input name="image" value={aiForm.image} onChange={handleAiFormChange} placeholder="Ảnh đại diện (URL)" />
-                    <input name="referer" value={aiForm.referer} onChange={handleAiFormChange} placeholder="HTTP-Referer (optional)" />
-                    <input name="title" value={aiForm.title} onChange={handleAiFormChange} placeholder="X-Title (optional)" />
-                  </>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAiImageChange}
-                  className="col-span-1 md:col-span-2"
-                />
-                {aiForm.image && (
-                  <img src={aiForm.image} alt="avatar" className="w-12 h-12 rounded-full mt-2" />
-                )}
-                <button type="submit" className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded">Lưu ChatBot</button>
-              </form>
-            )}
-
-            <div>
-              <h3 className="font-semibold mb-2">Danh sách ChatBot</h3>
-              {aiKeys.length === 0 ? (
-                <div className="text-gray-500 italic">Chưa có ChatBot nào.</div>
-              ) : (
-                <ul>
-                  {aiKeys.map((ai) => (
-                    <li key={ai._id} className="mb-2 flex items-center gap-2">
-                      {ai.image && <img src={ai.image} alt={ai.name} className="w-8 h-8 rounded-full" />}
-                      <span className="font-bold">{ai.name}</span>
-                      <span className="text-xs text-gray-500">{ai.model}</span>
-                      <span className="text-xs text-gray-500">{ai.baseURL}</span>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={async () => {
-                          if (confirm("Bạn có chắc muốn xóa ChatBot này?")) {
-                            await handleDeleteBot(ai._id) // Gọi đúng hàm đã xử lý xóa lịch sử
-                          }
-                        }}
-                      >
-                        Xóa
-                      </Button>
-                      {/* Nút tạm ẩn/hiện */}
-                      <Button
-                        size="sm"
-                        variant={ai.status === "hidden" ? "outline" : "secondary"}
-                        onClick={async () => {
-                          await fetch(`http://localhost:5000/api/apikeys/${ai._id}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ status: ai.status === "hidden" ? "active" : "hidden" })
-                          })
-                          fetchAiKeys()
-                        }}
-                      >
-                        {ai.status === "hidden" ? "Hiện" : "Tạm ẩn"}
-                      </Button>
-                    </li>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user._id}>
+                      <TableCell className="flex items-center space-x-3">
+                        <Avatar>
+                          <AvatarImage src={user.avatar || "/placeholder.svg"} />
+                          <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-medium">{user.name}</span>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                          {user.role === "admin" ? "Quản trị viên" : "Người dùng"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={user.status === "active" ? "default" : "destructive"}>
+                          {user.status === "active" ? "Hoạt động" : "Bị chặn"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{user.createdAt}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {/* Nút block/unblock */}
+                          {user._id !== currentUserId && (
+                            user.status === "active" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleChangeStatus(user._id, "blocked")}
+                              >
+                                <Icon icon="mdi:block-helper" className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleChangeStatus(user._id, "active")}
+                              >
+                                <Icon icon="mdi:check" className="w-4 h-4" />
+                              </Button>
+                            )
+                          )}
+                          {/* Nút nâng/hạ quyền */}
+                          {user._id !== currentUserId && (
+                            user.role === "admin" ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleChangeRole(user._id, "user")}
+                              >
+                                <Icon icon="mdi:arrow-down" className="w-4 h-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleChangeRole(user._id, "admin")}
+                              >
+                                <Icon icon="mdi:arrow-up" className="w-4 h-4" />
+                              </Button>
+                            )
+                          )}
+                          {/* Nút xóa */}
+                          {user._id !== currentUserId && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteUser(user._id)}
+                            >
+                              <Icon icon="mdi:delete" className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </ul>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* AI Key Management */}
+          <Card className="mt-8" ref={chatbotRef}>
+            <CardHeader>
+              <CardTitle>Quản lý ChatBot</CardTitle>
+              <CardDescription>Thêm và quản lý các ChatBot AI cho hệ thống</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-6">
+                <Button
+                  className="bg-blue-600 text-white"
+                  onClick={() => setShowAiForm((v) => !v)}
+                >
+                  {showAiForm ? "Đóng" : "Thêm ChatBot"}
+                </Button>
+              </div>
+              {showAiForm && (
+                <form
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-6 bg-white rounded-xl shadow border border-gray-200"
+                  onSubmit={handleAddAiKey}
+                >
+                  <input name="name" value={aiForm.name} onChange={handleAiFormChange} placeholder="Tên AI" required />
+                  <input name="apiKey" value={aiForm.apiKey} onChange={handleAiFormChange} placeholder="API Key" required />
+                  <input name="baseURL" value={aiForm.baseURL} onChange={handleAiFormChange} placeholder="Base URL" required />
+                  <input name="model" value={aiForm.model} onChange={handleAiFormChange} placeholder="Model" required />
+                  <Button
+                    type="button"
+                    className="col-span-1 md:col-span-2"
+                    variant="outline"
+                    onClick={() => setShowAdvanced((v) => !v)}
+                  >
+                    {showAdvanced ? "Ẩn trường nâng cao" : "Hiện trường nâng cao"}
+                  </Button>
+                  {showAdvanced && (
+                    <>
+                      <input name="image" value={aiForm.image} onChange={handleAiFormChange} placeholder="Ảnh đại diện (URL)" />
+                      <input name="referer" value={aiForm.referer} onChange={handleAiFormChange} placeholder="HTTP-Referer (optional)" />
+                      <input name="title" value={aiForm.title} onChange={handleAiFormChange} placeholder="X-Title (optional)" />
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAiImageChange}
+                    className="col-span-1 md:col-span-2"
+                  />
+                  {aiForm.image && (
+                    <img src={aiForm.image} alt="avatar" className="w-12 h-12 rounded-full mt-2" />
+                  )}
+                  <button type="submit" className="col-span-1 md:col-span-2 bg-blue-600 text-white py-2 rounded">Lưu ChatBot</button>
+                </form>
               )}
-            </div>
-          </CardContent>
-        </Card>
+
+              <div>
+                <h3 className="font-semibold mb-2">Danh sách ChatBot</h3>
+                {aiKeys.length === 0 ? (
+                  <div className="text-gray-500 italic">Chưa có ChatBot nào.</div>
+                ) : (
+                  <ul>
+                    {aiKeys.map((ai) => (
+                      <li key={ai._id} className="mb-2 flex items-center gap-2">
+                        {ai.image && <img src={ai.image} alt={ai.name} className="w-8 h-8 rounded-full" />}
+                        <span className="font-bold">{ai.name}</span>
+                        <span className="text-xs text-gray-500">{ai.model}</span>
+                        <span className="text-xs text-gray-500">{ai.baseURL}</span>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDeleteBot(ai._id)}
+                        >
+                          Xóa
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={ai.hidden ? "outline" : "secondary"}
+                          onClick={() => handleToggleHideBot(ai)}
+                        >
+                          {ai.hidden ? "Hiện lại" : "Tạm ẩn"}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+      {ConfirmDialog}
+    </>
   )
 }
