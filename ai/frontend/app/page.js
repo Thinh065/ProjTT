@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import ChatSidebar from "@/components/chat/ChatSidebar"
 import ChatInterface from "@/components/chat/ChatInterface"
 
 export default function Home() {
@@ -41,12 +40,11 @@ export default function Home() {
 
   return (
     <div className="flex h-screen">
-      <ChatSidebar
-        chats={chats}
-        onSelectChat={handleSelectChat}
-        onNewChat={handleNewChat}
-        selectedChatId={currentChat?.id}
-      />
+      {/* Thay ChatSidebar bằng ChatHistory hoặc BotSelector nếu muốn */}
+      {/* <ChatSidebar ... /> */}
+      {/* Ví dụ: */}
+      {/* <BotSelector ... /> */}
+      {/* <ChatHistory ... /> */}
       <div className="flex-1">
         <ChatInterface
           chat={currentChat}
