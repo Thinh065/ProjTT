@@ -58,11 +58,6 @@
   }
 }
 
-html, body, #__next {
-  height: 100vh;
-  overflow: hidden;
-}
-
 .chat-message {
   animation: fadeInUp 0.3s ease-out;
 }

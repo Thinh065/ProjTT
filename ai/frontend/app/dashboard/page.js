@@ -1,176 +1,120 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useEffect, useState } from "react"
 import BotSelector from "@/components/chat/BotSelector"
 import ChatHistory from "@/components/chat/ChatHistory"
 import ChatInterface from "@/components/chat/ChatInterface"
-import { Icon } from "@iconify/react"
 
 export default function DashboardPage() {
   const [bots, setBots] = useState([])
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
-  const newChatRef = useRef(null)
 
-  // Load bots từ API
+  // Lấy danh sách ChatBot từ backend
   useEffect(() => {
     fetch("http://localhost:5000/api/apikeys")
       .then((res) => res.json())
-      .then(setBots)
-  }, [])
-
-  // Load lịch sử chat và currentChat từ localStorage khi load trang
-  useEffect(() => {
-    // Lấy tất cả các key bắt đầu bằng 'chatHistory'
-    const allKeys = Object.keys(localStorage).filter((key) => key.startsWith("chatHistory"))
-    let allHistory = []
-    allKeys.forEach((key) => {
-      try {
-        const chats = JSON.parse(localStorage.getItem(key) || "[]")
-        if (Array.isArray(chats)) {
-          allHistory = allHistory.concat(chats)
+      .then((data) => {
+        // Lọc bot chưa bị ẩn
+        const visibleBots = data.filter(b => !b.hidden)
+        setBots(visibleBots)
+        // Ưu tiên lấy botId/chatId từ localStorage nếu có
+        const botId = localStorage.getItem("currentBotId");
+        let bot = null;
+        if (botId) {
+          bot = visibleBots.find(b => b._id === botId || b.id === botId);
         }
-      } catch {}
-    })
-    setChatHistory(allHistory)
-    const savedChat = JSON.parse(localStorage.getItem("currentChat") || "null")
-    if (savedChat) {
-      setCurrentChat(savedChat)
-      setSelectedBot(savedChat.bot)
-    } else if (allHistory.length > 0) {
-      // Nếu không có currentChat, lấy cuộc chat gần nhất
-      setCurrentChat(allHistory[allHistory.length - 1])
-      setSelectedBot(allHistory[allHistory.length - 1].bot)
-    }
+        if (bot) {
+          setSelectedBot(bot);
+        } else if (visibleBots.length > 0) {
+          setSelectedBot(visibleBots[0]);
+        }
+      })
   }, [])
 
-  // Luôn đồng bộ chatHistory vào localStorage
+  // Khi đổi bot, đọc lịch sử chat từ localStorage
   useEffect(() => {
-    localStorage.setItem("chatHistory", JSON.stringify(chatHistory))
-  }, [chatHistory])
-
-  // Luôn đồng bộ currentChat vào localStorage
-  useEffect(() => {
-    if (currentChat) {
-      localStorage.setItem("currentChat", JSON.stringify(currentChat))
+    if (!selectedBot) {
+      setChatHistory([])
+      setCurrentChat(null)
+      return
     }
-  }, [currentChat])
+    const botKey = selectedBot._id || selectedBot.id || selectedBot.name
+    const historyKey = `chatHistory_${botKey}`
+    const history = JSON.parse(localStorage.getItem(historyKey) || "[]")
 
-  // Khi gửi tin nhắn hoặc nhận phản hồi AI
-  const handleChatUpdate = (chat) => {
-    setCurrentChat(chat)
-    setChatHistory((prev) => {
-      const filtered = prev.filter((c) => c.id !== chat.id)
-      const updated = [...filtered, chat]
-      localStorage.setItem("chatHistory", JSON.stringify(updated))
-      return updated
-    })
-  }
+    // Ưu tiên lấy chat từ localStorage nếu có
+    let chat = null
+    const chatData = localStorage.getItem("currentChat")
+    if (chatData) {
+      try {
+        const parsed = JSON.parse(chatData)
+        chat = history.find(c => String(c.id) === String(parsed.id))
+        setChatHistory(history)
+        setCurrentChat(chat || history[0] || null)
+        return
+      } catch {}
+    }
+    setChatHistory(history)
+    setCurrentChat(history[0] || null)
+  }, [selectedBot])
 
-  // Xử lý nút "Chat mới"
+  // Khi tạo chat mới
   const handleNewChat = () => {
-    // Lưu chat hiện tại vào lịch sử nếu có tin nhắn
-    if (currentChat && currentChat.messages && currentChat.messages.length > 0) {
-      setChatHistory((prev) => {
-        const filtered = prev.filter((c) => c.id !== currentChat.id)
-        const updated = [...filtered, currentChat]
-        localStorage.setItem("chatHistory", JSON.stringify(updated))
-        return updated
-      })
-    }
-    // Tạo chat mới rỗng với bot đang chọn
+    if (!selectedBot) return
     const newChat = {
       id: Date.now(),
+      title: "Cuộc trò chuyện mới",
       bot: selectedBot,
       messages: [],
-      title: selectedBot?.name || "",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      messageCount: 0,
+      createdAt: new Date(),
     }
     setCurrentChat(newChat)
-    newChatRef.current = newChat
-    localStorage.setItem("currentChat", JSON.stringify(newChat))
+    setChatHistory([newChat, ...chatHistory])
+    // Lưu vào localStorage
+    const botKey = selectedBot._id || selectedBot.id || selectedBot.name
+    const historyKey = `chatHistory_${botKey}`
+    localStorage.setItem(historyKey, JSON.stringify([newChat, ...chatHistory]))
   }
 
-  // Khi chọn một cuộc hội thoại từ lịch sử
-  const handleSelectChat = (chat) => {
-    if (!chat) {
-      setCurrentChat(null)
-      setSelectedBot(null)
-      localStorage.removeItem("currentChat")
-      return
-    }
-    setCurrentChat(chat)
-    setSelectedBot(chat.bot)
-    newChatRef.current = null
-    localStorage.setItem("currentChat", JSON.stringify(chat))
-  }
-
-  // Khi chọn bot mới, lấy chat gần nhất với bot đó hoặc tạo chat mới nếu vừa bấm "Chat mới"
-  const handleSelectBot = (bot) => {
-    setSelectedBot(bot)
-    if (
-      newChatRef.current &&
-      newChatRef.current.bot &&
-      (newChatRef.current.bot.id === bot.id || newChatRef.current.bot._id === bot._id)
-    ) {
-      setCurrentChat(newChatRef.current)
-      localStorage.setItem("currentChat", JSON.stringify(newChatRef.current))
-      return
-    }
-    const botChats = chatHistory.filter(
-      (c) =>
-        c.bot &&
-        ((c.bot._id && bot._id && c.bot._id === bot._id) ||
-          (c.bot.id && bot.id && c.bot.id === bot.id))
-    )
-    if (botChats.length > 0) {
-      setCurrentChat(botChats[botChats.length - 1])
-      localStorage.setItem("currentChat", JSON.stringify(botChats[botChats.length - 1]))
-    } else {
-      const emptyChat = {
-        id: Date.now(),
-        bot,
-        messages: [],
-        title: bot.name || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        messageCount: 0,
-      }
-      setCurrentChat(emptyChat)
-      localStorage.setItem("currentChat", JSON.stringify(emptyChat))
-    }
-    newChatRef.current = null
+  // Khi cập nhật chat (gửi tin nhắn mới)
+  const handleChatUpdate = (updatedChat) => {
+    setCurrentChat(updatedChat)
+    const botKey = selectedBot._id || selectedBot.id || selectedBot.name
+    const historyKey = `chatHistory_${botKey}`
+    const newHistory = [updatedChat, ...chatHistory.filter(c => c.id !== updatedChat.id)]
+    setChatHistory(newHistory)
+    localStorage.setItem(historyKey, JSON.stringify(newHistory))
   }
 
   const handleDeleteChat = (chatId) => {
-    // Xóa khỏi state
     const newHistory = chatHistory.filter((chat) => chat.id !== chatId)
     setChatHistory(newHistory)
-    // Xóa khỏi "chatHistory" tổng
-    localStorage.setItem("chatHistory", JSON.stringify(newHistory))
-
-    // Xóa khỏi tất cả các key chatHistory_<botId>
-    Object.keys(localStorage)
-      .filter((key) => key.startsWith("chatHistory_"))
-      .forEach((key) => {
-        const chats = JSON.parse(localStorage.getItem(key) || "[]")
-        const filtered = chats.filter((chat) => chat.id !== chatId)
-        localStorage.setItem(key, JSON.stringify(filtered))
-      })
-
-    // Nếu đang xem chat vừa xóa thì reset
-    if (currentChat?.id === chatId) {
-      setCurrentChat(null)
-      localStorage.removeItem("currentChat")
+    // Xóa trong localStorage
+    const botKey = selectedBot._id || selectedBot.id || selectedBot.name
+    const historyKey = `chatHistory_${botKey}`
+    localStorage.setItem(historyKey, JSON.stringify(newHistory))
+    // Nếu chat hiện tại bị xóa thì bỏ chọn
+    if (currentChat && currentChat.id === chatId) {
+      setCurrentChat(newHistory[0] || null)
     }
   }
 
+  const handleSelectBot = (bot) => {
+    setSelectedBot(bot)
+    localStorage.setItem("currentBotId", bot._id || bot.id)
+  }
+
+  const handleSelectChat = (chat) => {
+    setCurrentChat(chat)
+    localStorage.setItem("currentChat", JSON.stringify(chat))
+  }
+
   return (
-    <div className="flex h-screen">
-      <div className="w-1/4 border-r flex flex-col">
+    <div className="flex h-full">
+      {/* Bot Selector */}
+      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         <BotSelector
           bots={bots}
           selectedBot={selectedBot}
@@ -184,27 +128,44 @@ export default function DashboardPage() {
           onDeleteChat={handleDeleteChat}
         />
       </div>
-      <div className="flex-1 flex flex-col bg-gray-50">
-        <div className="flex items-center justify-between px-6 py-4 bg-white shadow z-10">
-          <h2 className="text-2xl font-bold text-gray-800">
-            {selectedBot ? selectedBot.name : "Chọn ChatBot"}
-          </h2>
-          {selectedBot && (
+      {/* Chat Interface */}
+      <div className="flex-1 flex flex-col">
+        {/* Header ChatBot */}
+        {selectedBot && (
+          <div className="flex items-center justify-between px-6 py-4 border-b bg-white">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${selectedBot.color}`}>
+                {/* Nếu có icon */}
+                {selectedBot.icon && (
+                  <span className="text-white text-xl">
+                    <i className={selectedBot.icon}></i>
+                  </span>
+                )}
+              </div>
+              <span className="font-semibold text-lg">{selectedBot.name}</span>
+            </div>
             <button
+              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition"
               onClick={handleNewChat}
-              className="ml-4 px-4 py-2 bg-primary hover:bg-primary/80 text-white rounded transition font-semibold shadow flex items-center"
             >
-              <Icon icon="mdi:plus" className="w-4 h-4 mr-2" />
-              Chat mới
+              + Tạo chat mới
             </button>
+          </div>
+        )}
+
+        {/* Chat Interface */}
+        <div className="flex-1 min-h-0">
+          {selectedBot ? (
+            <ChatInterface bot={selectedBot} chat={currentChat} onChatUpdate={handleChatUpdate} />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="text-gray-400 text-6xl mb-4">🤖</div>
+                <h2 className="text-xl font-semibold text-gray-600 mb-2">Chưa có ChatBot nào</h2>
+                <p className="text-gray-500">Hãy thêm ChatBot AI trong trang quản trị để bắt đầu sử dụng</p>
+              </div>
+            </div>
           )}
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <ChatInterface
-            bot={selectedBot}
-            chat={currentChat}
-            onChatUpdate={handleChatUpdate}
-          />
         </div>
       </div>
     </div>
