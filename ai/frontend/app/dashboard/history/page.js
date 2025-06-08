@@ -78,28 +78,10 @@ export default function HistoryPage() {
     showConfirm({
       message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
       onConfirm: () => {
-        // Xóa khỏi "chatHistory" tổng
-        let allHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]")
-        allHistory = allHistory.filter((chat) => chat.id !== chatId)
-        localStorage.setItem("chatHistory", JSON.stringify(allHistory))
-
-        // Xóa khỏi tất cả các key chatHistory_<botId>
-        Object.keys(localStorage)
-          .filter((key) => key.startsWith("chatHistory_"))
-          .forEach((key) => {
-            const chats = JSON.parse(localStorage.getItem(key) || "[]")
-            const filtered = chats.filter((chat) => chat.id !== chatId)
-            localStorage.setItem(key, JSON.stringify(filtered))
-          })
-
-        // Nếu đang xem chat vừa xóa thì reset
-        const currentChat = JSON.parse(localStorage.getItem("currentChat") || "null")
-        if (currentChat?.id === chatId) {
-          localStorage.removeItem("currentChat")
-        }
-
-        // Cập nhật lại state để giao diện đồng bộ
-        setChatHistory((prev) => prev.filter((chat) => chat.id !== chatId))
+        const historyKey = selectedBot === "all" ? "chatHistory" : `chatHistory_${selectedBot}`;
+        const newHistory = chatHistory.filter((chat) => chat.id !== chatId);
+        setChatHistory(newHistory);
+        localStorage.setItem(historyKey, JSON.stringify(newHistory));
       }
     })
   }
@@ -245,7 +227,6 @@ export default function HistoryPage() {
           ))}
         </div>
       )}
-
       {ConfirmDialog}
     </div>
   )
