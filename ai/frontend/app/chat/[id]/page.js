@@ -12,12 +12,6 @@ export default function ChatDetailPage() {
     setChat(found);
   }, [id]);
 
-  const handleDeleteUser = async (userId) => {
-    if (window.confirm("Bạn có chắc muốn xóa người dùng này?")) {
-      // ...xóa user...
-    }
-  }
-
   if (!chat) return <div>Không tìm thấy cuộc trò chuyện</div>;
 
   return (
