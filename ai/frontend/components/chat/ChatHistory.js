@@ -77,7 +77,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
           <div className="space-y-2">
             {(Array.isArray(chats) ? chats : []).map((chat) => (
               <div
-                key={chat.id}
+                key={chat.id || chat._id} // Đảm bảo mỗi chat có key duy nhất
                 className={cn(
                   "p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors group",
                   currentChat?.id === chat.id ? "bg-blue-50 border-blue-200" : "border-gray-200",
