@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
-import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function HistoryPage() {
   const [chatHistory, setChatHistory] = useState([])
@@ -18,10 +18,11 @@ export default function HistoryPage() {
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
   useEffect(() => {
-    // Đọc đúng key theo bot
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
     const historyKey = selectedBot === "all"
-      ? "chatHistory"
-      : `chatHistory_${selectedBot}`;
+      ? `chatHistory_${userId}_all`
+      : `chatHistory_${userId}_${selectedBot}`;
     const history = JSON.parse(localStorage.getItem(historyKey) || "[]");
     setChatHistory(history);
   }, [selectedBot])
@@ -78,10 +79,37 @@ export default function HistoryPage() {
     showConfirm({
       message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
       onConfirm: () => {
-        const historyKey = selectedBot === "all" ? "chatHistory" : `chatHistory_${selectedBot}`;
-        const newHistory = chatHistory.filter((chat) => chat.id !== chatId);
-        setChatHistory(newHistory);
-        localStorage.setItem(historyKey, JSON.stringify(newHistory));
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const userId = user._id || user.id;
+
+        if (selectedBot === "all") {
+          // Xóa ở tất cả các bot của user này
+          bots.forEach((bot) => {
+            const botKey = bot._id || bot.id || bot.name;
+            const historyKey = `chatHistory_${userId}_${botKey}`;
+            let botHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+            botHistory = botHistory.filter((chat) => chat.id !== chatId);
+            localStorage.setItem(historyKey, JSON.stringify(botHistory));
+          });
+          // Xóa ở "all"
+          const allHistoryKey = `chatHistory_${userId}_all`;
+          let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
+          allHistory = allHistory.filter((chat) => chat.id !== chatId);
+          setChatHistory(allHistory);
+          localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
+        } else {
+          const historyKey = `chatHistory_${userId}_${selectedBot}`;
+          let botHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+          botHistory = botHistory.filter((chat) => chat.id !== chatId);
+          setChatHistory(botHistory);
+          localStorage.setItem(historyKey, JSON.stringify(botHistory));
+
+          // Đồng bộ lại "all"
+          const allHistoryKey = `chatHistory_${userId}_all`;
+          let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
+          allHistory = allHistory.filter((chat) => chat.id !== chatId);
+          localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
+        }
       }
     })
   }
