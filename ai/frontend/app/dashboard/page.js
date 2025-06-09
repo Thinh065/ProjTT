@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import BotSelector from "@/components/chat/BotSelector"
 import ChatHistory from "@/components/chat/ChatHistory"
 import ChatInterface from "@/components/chat/ChatInterface"
@@ -10,6 +11,7 @@ export default function DashboardPage() {
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
+  const [ConfirmDialog, showConfirm] = useConfirmDialog();
 
   // Lấy danh sách ChatBot từ backend
   useEffect(() => {
@@ -40,8 +42,10 @@ export default function DashboardPage() {
       setCurrentChat(null)
       return
     }
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
     const botKey = selectedBot._id || selectedBot.id || selectedBot.name
-    const historyKey = `chatHistory_${botKey}`
+    const historyKey = `chatHistory_${userId}_${botKey}`
     const history = JSON.parse(localStorage.getItem(historyKey) || "[]")
 
     // Ưu tiên lấy chat từ localStorage nếu có
@@ -73,32 +77,48 @@ export default function DashboardPage() {
     setCurrentChat(newChat)
     setChatHistory([newChat, ...chatHistory])
     // Lưu vào localStorage
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
     const botKey = selectedBot._id || selectedBot.id || selectedBot.name
-    const historyKey = `chatHistory_${botKey}`
+    const historyKey = `chatHistory_${userId}_${botKey}`
     localStorage.setItem(historyKey, JSON.stringify([newChat, ...chatHistory]))
   }
 
   // Khi cập nhật chat (gửi tin nhắn mới)
   const handleChatUpdate = (updatedChat) => {
     setCurrentChat(updatedChat)
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
     const botKey = selectedBot._id || selectedBot.id || selectedBot.name
-    const historyKey = `chatHistory_${botKey}`
+    const historyKey = `chatHistory_${userId}_${botKey}`
     const newHistory = [updatedChat, ...chatHistory.filter(c => c.id !== updatedChat.id)]
     setChatHistory(newHistory)
     localStorage.setItem(historyKey, JSON.stringify(newHistory))
   }
 
   const handleDeleteChat = (chatId) => {
-    const newHistory = chatHistory.filter((chat) => chat.id !== chatId)
-    setChatHistory(newHistory)
-    // Xóa trong localStorage
-    const botKey = selectedBot._id || selectedBot.id || selectedBot.name
-    const historyKey = `chatHistory_${botKey}`
-    localStorage.setItem(historyKey, JSON.stringify(newHistory))
-    // Nếu chat hiện tại bị xóa thì bỏ chọn
-    if (currentChat && currentChat.id === chatId) {
-      setCurrentChat(newHistory[0] || null)
-    }
+    showConfirm({
+      message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
+      onConfirm: () => {
+        const newHistory = chatHistory.filter((chat) => chat.id !== chatId)
+        setChatHistory(newHistory)
+        // Xóa trong localStorage
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const userId = user._id || user.id;
+        const botKey = selectedBot._id || selectedBot.id || selectedBot.name
+        const historyKey = `chatHistory_${userId}_${botKey}`
+        localStorage.setItem(historyKey, JSON.stringify(newHistory))
+        // Xóa ở "all"
+        const allHistoryKey = `chatHistory_${userId}_all`
+        let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]")
+        allHistory = allHistory.filter((chat) => chat.id !== chatId)
+        localStorage.setItem(allHistoryKey, JSON.stringify(allHistory))
+        // Nếu chat hiện tại bị xóa thì bỏ chọn
+        if (currentChat && currentChat.id === chatId) {
+          setCurrentChat(newHistory[0] || null)
+        }
+      }
+    })
   }
 
   const handleSelectBot = (bot) => {
@@ -168,6 +188,7 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+      {ConfirmDialog}
     </div>
   )
 }
