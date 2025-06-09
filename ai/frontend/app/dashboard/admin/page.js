@@ -152,26 +152,30 @@ export default function AdminPage() {
 
   const handleAddAiKey = async (e) => {
     e.preventDefault()
-    const res = await fetch("http://localhost:5000/api/apikeys", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(aiForm)
+    showConfirm({
+      message: "Bạn có chắc chắn muốn thêm ChatBot này?",
+      onConfirm: async () => {
+        const res = await fetch("http://localhost:5000/api/apikeys", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(aiForm)
+        })
+        if (res.ok) {
+          setShowAiForm(false)
+          fetchAiKeys()
+          showConfirm({
+            message: "Thêm AI Key thành công!",
+            onlyClose: true
+          })
+        } else {
+          const data = await res.json()
+          showConfirm({
+            message: data.message || "Lỗi khi thêm AI Key",
+            onlyClose: true
+          })
+        }
+      }
     })
-    if (res.ok) {
-      setAiForm({
-        name: "",
-        apiKey: "",
-        baseURL: "",
-        model: "",
-        image: "",
-        referer: "",
-        title: ""
-      })
-      fetchAiKeys()
-      alert("Thêm AI Key thành công!")
-    } else {
-      alert("Lỗi khi thêm AI Key")
-    }
   }
 
   const handleAiImageChange = async (e) => {
