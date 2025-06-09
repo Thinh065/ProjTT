@@ -54,11 +54,15 @@ export default function HistoryPage() {
       )
     }
 
-    // Lọc chỉ các bot còn tồn tại
+    // Lọc chỉ các bot còn tồn tại và KHÔNG bị ẩn
     filtered = filtered.filter(
       (chat) =>
         chat.bot &&
-        bots.some((bot) => bot._id === (chat.bot._id || chat.bot.id))
+        bots.some(
+          (bot) =>
+            (bot._id === (chat.bot._id || chat.bot.id)) &&
+            !bot.hidden
+        )
     )
 
     setFilteredHistory(filtered)
@@ -163,17 +167,19 @@ export default function HistoryPage() {
         >
           Tất cả
         </Button>
-        {bots.map((bot) => (
-          <Button
-            key={bot._id}
-            variant={selectedBot === bot._id ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedBot(bot._id)}
-            className="flex items-center space-x-2"
-          >
-            <span>{bot.name}</span>
-          </Button>
-        ))}
+        {bots
+          .filter(bot => !bot.hidden) // <-- chỉ hiện bot không bị ẩn
+          .map((bot) => (
+            <Button
+              key={bot._id}
+              variant={selectedBot === bot._id ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedBot(bot._id)}
+              className="flex items-center space-x-2"
+            >
+              <span>{bot.name}</span>
+            </Button>
+          ))}
       </div>
 
       <h3 className="text-xl font-semibold mb-4">
