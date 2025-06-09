@@ -3,14 +3,20 @@ import { useState } from "react"
 export function useConfirmDialog() {
   const [open, setOpen] = useState(false)
   const [message, setMessage] = useState("")
-  const [onConfirm, setOnConfirm] = useState(() => () => {})
+  const [onConfirm, setOnConfirm] = useState(null)
+  const [onlyClose, setOnlyClose] = useState(false)
 
-  const show = ({ message, onConfirm }) => {
+  const show = ({ message, onConfirm, onlyClose = false }) => {
     setMessage(message)
-    setOnConfirm(() => () => {
-      setOpen(false)
-      onConfirm()
-    })
+    setOnlyClose(onlyClose)
+    if (onConfirm) {
+      setOnConfirm(() => () => {
+        setOpen(false)
+        onConfirm()
+      })
+    } else {
+      setOnConfirm(null)
+    }
     setOpen(true)
   }
 
@@ -20,8 +26,12 @@ export function useConfirmDialog() {
         <h2 className="font-bold text-lg mb-2">Multi ChatBot AMC</h2>
         <p className="mb-4">{message}</p>
         <div className="flex justify-end gap-2">
-          <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => setOpen(false)}>Huỷ</button>
-          <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={onConfirm}>Xác nhận</button>
+          <button className="px-3 py-1 bg-gray-200 rounded" onClick={() => setOpen(false)}>
+            {onlyClose ? "Đóng" : "Huỷ"}
+          </button>
+          {!onlyClose && onConfirm && (
+            <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={onConfirm}>Xác nhận</button>
+          )}
         </div>
       </div>
     </div>
