@@ -111,8 +111,10 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       }
       onChatUpdate(finalChat)
 
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = user._id || user.id;
       const botKey = bot._id || bot.id || "default";
-      const historyKey = `chatHistory_${botKey}`;
+      const historyKey = `chatHistory_${userId}_${botKey}`;
       let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
       const chatData = {
         id: updatedChat.id,
@@ -127,10 +129,11 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       chatHistory = chatHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
       localStorage.setItem(historyKey, JSON.stringify(chatHistory));
 
-      // Đồng bộ vào "Tất cả"
-      let allHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+      // Đồng bộ vào "Tất cả" của user
+      const allHistoryKey = `chatHistory_${userId}_all`;
+      let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
       allHistory = allHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
-      localStorage.setItem("chatHistory", JSON.stringify(allHistory));
+      localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
     } catch (error) {
       if (error.name === "AbortError") {
         // Bị abort thì không làm gì cả
