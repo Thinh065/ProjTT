@@ -49,7 +49,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     // Update chat
     const updatedChat = {
       ...chat,
-      bot: { ...bot }, // clone bot hiện tại
+      id: chat?.id || Date.now(), // Đảm bảo luôn có id
+      bot: { ...bot },
       messages: newMessages,
       title: chat?.title || input.trim().substring(0, 50) + "...",
       lastMessage: input.trim(),
@@ -114,21 +115,21 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       const historyKey = `chatHistory_${botKey}`;
       let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
       const chatData = {
-        id: chat.id,
+        id: updatedChat.id,
         bot: { ...bot },
-        title: chat.title,
+        title: updatedChat.title,
         messages: finalMessages,
-        createdAt: chat.createdAt || new Date().toISOString(),
+        createdAt: updatedChat.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         messageCount: finalMessages.length,
         preview: finalMessages[0]?.content || "",
       };
-      chatHistory = chatHistory.filter((c) => c.id !== chat.id).concat(chatData);
+      chatHistory = chatHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
       localStorage.setItem(historyKey, JSON.stringify(chatHistory));
 
       // Đồng bộ vào "Tất cả"
       let allHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-      allHistory = allHistory.filter((c) => c.id !== chat.id).concat(chatData);
+      allHistory = allHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
       localStorage.setItem("chatHistory", JSON.stringify(allHistory));
     } catch (error) {
       if (error.name === "AbortError") {
