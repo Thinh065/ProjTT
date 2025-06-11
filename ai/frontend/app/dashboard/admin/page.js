@@ -212,6 +212,16 @@ export default function AdminPage() {
     fetchAiKeys();
   };
 
+  // Ẩn/hiện ChatBot
+  const handleHideAiKey = async (botId, hidden) => {
+    await fetch(`http://localhost:5000/api/apikeys/${botId}/hide`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidden }),
+    });
+    fetchAiKeys();
+  };
+
   if (loading) return <div>Đang tải...</div>
 
   return (
@@ -374,55 +384,81 @@ export default function AdminPage() {
 
             <div>
               <h3 className="font-semibold mb-2">Danh sách ChatBot</h3>
-              {aiKeys.length === 0 ? (
-                <div className="text-gray-500 italic">Chưa có ChatBot nào.</div>
-              ) : (
-                <ul>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ChatBot</TableHead>
+                    <TableHead>Model</TableHead>
+                    <TableHead>Base URL</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Ngày tạo</TableHead>
+                    <TableHead>Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {aiKeys.map((ai) => (
-                    <li key={ai._id} className="mb-2 flex items-center gap-2">
-                      {ai.image && <img src={ai.image} alt={ai.name} className="w-8 h-8 rounded-full" />}
-                      <span className="font-bold">{ai.name}</span>
-                      <span className="text-xs text-gray-500">{ai.model}</span>
-                      <span className="text-xs text-gray-500">{ai.baseURL}</span>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          showConfirm({
-                            message: "Bạn có chắc muốn xóa ChatBot này?",
-                            onConfirm: async () => {
-                              await handleDeleteBot(ai._id)
-                            }
-                          })
-                        }}
-                      >
-                        Xóa
-                      </Button>
-                      {/* Nút tạm ẩn/hiện */}
-                      <Button
-                        size="sm"
-                        variant={ai.hidden ? "outline" : "secondary"}
-                        onClick={() => {
-                          showConfirm({
-                            message: ai.hidden
-                              ? "Bạn có chắc muốn hiện ChatBot này?"
-                              : "Bạn có chắc muốn tạm ẩn ChatBot này?",
-                            onConfirm: async () => {
-                              await fetch(`http://localhost:5000/api/apikeys/${ai._id}/hide`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ hidden: !ai.hidden })
+                    <TableRow key={ai._id}>
+                      <TableCell className="flex items-center space-x-3">
+                        {ai.image && (
+                          <img src={ai.image} alt={ai.name} className="w-8 h-8 rounded-full" />
+                        )}
+                        <span className="font-medium">{ai.name}</span>
+                      </TableCell>
+                      <TableCell>{ai.model}</TableCell>
+                      <TableCell>
+                        <span className="text-xs text-gray-500">{ai.baseURL}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={ai.hidden ? "destructive" : "default"}>
+                          {ai.hidden ? "Tạm ẩn" : "Hiện"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {ai.createdAt
+                          ? new Date(ai.createdAt).toLocaleString()
+                          : ""}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {/* Nút xóa */}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              showConfirm({
+                                message: "Bạn có chắc muốn xóa ChatBot này?",
+                                onConfirm: async () => {
+                                  await handleDeleteBot(ai._id)
+                                },
                               })
-                              fetchAiKeys()
-                            }
-                          })
-                        }}
-                      >
-                        {ai.hidden ? "Hiện lại" : "Tạm ẩn"}
-                      </Button>
-                    </li>
+                            }}
+                          >
+                            <Icon icon="mdi:delete" className="w-4 h-4" />
+                          </Button>
+                          {/* Nút tạm ẩn/hiện lại */}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleHideAiKey(ai._id, !ai.hidden)}
+                          >
+                            {ai.hidden ? (
+                              <>
+                                <Icon icon="mdi:eye" className="w-4 h-4" /> Hiện lại
+                              </>
+                            ) : (
+                              <>
+                                <Icon icon="mdi:eye-off" className="w-4 h-4" /> Tạm ẩn
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </ul>
+                </TableBody>
+              </Table>
+              {aiKeys.length === 0 && (
+                <div className="text-gray-500 italic">Chưa có ChatBot nào.</div>
               )}
             </div>
           </CardContent>
