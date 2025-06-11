@@ -3,6 +3,7 @@ const router = express.Router()
 const auth = require("../middleware/auth")
 const multer = require("multer")
 const path = require("path")
+const uploadCloud = require("../middleware/cloudinary")
 
 // Middleware kiểm tra quyền admin
 const requireAdmin = (req, res, next) => {
@@ -66,18 +67,19 @@ const storage = multer.diskStorage({
 })
 const upload = multer({ storage })
 
-// API upload avatar cho user
-router.post("/users/:id/avatar", auth, upload.single("avatar"), async (req, res) => {
+// API upload avatar cho user (dùng Cloudinary)
+router.post("/users/:id/avatar", auth, uploadCloud.single("avatar"), async (req, res) => {
   if (req.user._id.toString() !== req.params.id && req.user.role !== "admin") {
     return res.status(403).json({ message: "Không có quyền" })
   }
-  const avatarUrl = `/uploads/avatars/${req.file.filename}`
+  // req.file.path là link Cloudinary
+  const avatarUrl = req.file.path
   const user = await require("../models/User").findByIdAndUpdate(
     req.params.id,
     { avatar: avatarUrl },
     { new: true }
   ).select("-password")
-  res.json(user)
+  res.json({ avatar: avatarUrl, user })
 })
 
 module.exports = router
