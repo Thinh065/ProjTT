@@ -37,6 +37,7 @@ export default function AdminPage() {
   })
   const [showAiForm, setShowAiForm] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false);
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}")
   const currentUserId = currentUser._id || currentUser.id
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
@@ -351,7 +352,18 @@ export default function AdminPage() {
                 onSubmit={handleAddAiKey}
               >
                 <input name="name" value={aiForm.name} onChange={handleAiFormChange} placeholder="Tên AI" required />
-                <input name="apiKey" value={aiForm.apiKey} onChange={handleAiFormChange} placeholder="API Key" required />
+                <div className="relative flex items-center">
+                  <input
+                    name="apiKey"
+                    value={aiForm.apiKey}
+                    onChange={handleAiFormChange}
+                    placeholder="API Key"
+                    required
+                    type="password"
+                    className="w-full border rounded px-3 py-2"
+                    autoComplete="off"
+                  />
+                </div>
                 <input name="baseURL" value={aiForm.baseURL} onChange={handleAiFormChange} placeholder="Base URL" required />
                 <input name="model" value={aiForm.model} onChange={handleAiFormChange} placeholder="Model" required />
                 <Button
@@ -434,22 +446,6 @@ export default function AdminPage() {
                             }}
                           >
                             <Icon icon="mdi:delete" className="w-4 h-4" />
-                          </Button>
-                          {/* Nút tạm ẩn/hiện lại */}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleHideAiKey(ai._id, !ai.hidden)}
-                          >
-                            {ai.hidden ? (
-                              <>
-                                <Icon icon="mdi:eye" className="w-4 h-4" /> Hiện lại
-                              </>
-                            ) : (
-                              <>
-                                <Icon icon="mdi:eye-off" className="w-4 h-4" /> Tạm ẩn
-                              </>
-                            )}
                           </Button>
                         </div>
                       </TableCell>
