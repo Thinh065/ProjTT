@@ -12,6 +12,8 @@ export default function DashboardPage() {
   const [currentChat, setCurrentChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
   const [ConfirmDialog, showConfirm] = useConfirmDialog();
+  const [editingTitle, setEditingTitle] = useState("");
+  const [editingChat, setEditingChat] = useState(null);
 
   // Lấy danh sách ChatBot từ backend
   useEffect(() => {
@@ -46,7 +48,14 @@ export default function DashboardPage() {
     const userId = user._id || user.id;
     const botKey = selectedBot._id || selectedBot.id || selectedBot.name
     const historyKey = `chatHistory_${userId}_${botKey}`
-    const history = JSON.parse(localStorage.getItem(historyKey) || "[]")
+    let history = JSON.parse(localStorage.getItem(historyKey) || "[]")
+
+    // --- Đồng bộ tên chat từ "all" ---
+    const allHistory = JSON.parse(localStorage.getItem(`chatHistory_${userId}_all`) || "[]")
+    history = history.map(chat => {
+      const updated = allHistory.find(c => c.id === chat.id)
+      return updated ? { ...chat, title: updated.title } : chat
+    })
 
     // Ưu tiên lấy chat từ localStorage nếu có
     let chat = null
@@ -63,6 +72,18 @@ export default function DashboardPage() {
     setChatHistory(history)
     setCurrentChat(history[0] || null)
   }, [selectedBot])
+
+  // Lấy lại chat mới nhất từ localStorage khi vào Dashboard
+  useEffect(() => {
+    const chatData = localStorage.getItem("currentChat");
+    if (chatData) {
+      try {
+        const chat = JSON.parse(chatData);
+        setCurrentChat(chat);
+        setSelectedBot(chat.bot);
+      } catch {}
+    }
+  }, [])
 
   // Khi tạo chat mới
   const handleNewChat = () => {
@@ -131,6 +152,32 @@ export default function DashboardPage() {
     localStorage.setItem("currentChat", JSON.stringify(chat))
   }
 
+  const handleEditTitle = () => {
+    setEditingTitle(currentChat?.title || "");
+    setEditingChat(currentChat?.id);
+  };
+
+  const handleSaveTitle = () => {
+    if (!currentChat) return;
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
+    // Cập nhật trong localStorage
+    const allHistoryKey = `chatHistory_${userId}_all`;
+    let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
+    allHistory = allHistory.map(c => c.id === currentChat.id ? { ...c, title: editingTitle } : c);
+    localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
+    setCurrentChat({ ...currentChat, title: editingTitle });
+    setEditingChat(null);
+    setEditingTitle("");
+    // Nếu có bot cụ thể, cập nhật luôn
+    if (currentChat.bot && currentChat.bot._id) {
+      const botHistoryKey = `chatHistory_${userId}_${currentChat.bot._id}`;
+      let botHistory = JSON.parse(localStorage.getItem(botHistoryKey) || "[]");
+      botHistory = botHistory.map(c => c.id === currentChat.id ? { ...c, title: editingTitle } : c);
+      localStorage.setItem(botHistoryKey, JSON.stringify(botHistory));
+    }
+  };
+
   return (
     <div className="flex h-full">
       {/* Bot Selector */}
@@ -163,6 +210,43 @@ export default function DashboardPage() {
                 )}
               </div>
               <span className="font-semibold text-lg">{selectedBot.name}</span>
+              {currentChat && (
+                <div className="flex items-center gap-2 ml-4">
+                  {editingChat === currentChat.id ? (
+                    <>
+                      <input
+                        className="border px-2 py-1 rounded text-sm"
+                        value={editingTitle}
+                        onChange={e => setEditingTitle(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") handleSaveTitle();
+                          if (e.key === "Escape") setEditingChat(null);
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        className="text-green-600 px-1"
+                        onClick={handleSaveTitle}
+                        title="Lưu"
+                      >✔</button>
+                      <button
+                        className="text-gray-500 px-1"
+                        onClick={() => setEditingChat(null)}
+                        title="Hủy"
+                      >✖</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-base font-medium">{currentChat.title}</span>
+                      <button
+                        className="text-blue-600 px-1"
+                        onClick={handleEditTitle}
+                        title="Đổi tên"
+                      >✎</button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <button
               className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition"
