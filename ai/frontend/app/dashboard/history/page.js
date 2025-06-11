@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +16,8 @@ export default function HistoryPage() {
   const [bots, setBots] = useState([])
   const [filteredHistory, setFilteredHistory] = useState([])
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
+  const [editingChatId, setEditingChatId] = useState(null)
+  const [editingTitle, setEditingTitle] = useState("")
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -137,6 +139,35 @@ export default function HistoryPage() {
     link.click()
   }
 
+  // Hàm bắt đầu chỉnh sửa
+  const handleEditChat = (chat) => {
+    setEditingChatId(chat.id)
+    setEditingTitle(chat.title)
+  }
+
+  // Hàm lưu tên mới
+  const handleSaveEdit = (chat) => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
+    // Cập nhật trong localStorage
+    const historyKey = selectedBot === "all"
+      ? `chatHistory_${userId}_all`
+      : `chatHistory_${userId}_${selectedBot}`;
+    let history = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    history = history.map(c => c.id === chat.id ? { ...c, title: editingTitle } : c);
+    localStorage.setItem(historyKey, JSON.stringify(history));
+    setChatHistory(history);
+    setEditingChatId(null);
+    setEditingTitle("");
+    // Nếu sửa ở 1 bot, đồng bộ lại "all"
+    if (selectedBot !== "all") {
+      const allHistoryKey = `chatHistory_${userId}_all`;
+      let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
+      allHistory = allHistory.map(c => c.id === chat.id ? { ...c, title: editingTitle } : c);
+      localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
+    }
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
@@ -215,24 +246,63 @@ export default function HistoryPage() {
                       <Icon icon="mdi:robot" className="w-3 h-3 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-sm font-medium truncate">{chat.title}</CardTitle>
-                      <Badge variant="secondary" className="text-xs mt-1">
-                        {chat.bot.name}
-                      </Badge>
+                      {editingChatId === chat.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            className="border px-2 py-1 rounded text-sm flex-1"
+                            value={editingTitle}
+                            onChange={e => setEditingTitle(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === "Enter") handleSaveEdit(chat)
+                              if (e.key === "Escape") setEditingChatId(null)
+                            }}
+                            autoFocus
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <CardTitle className="text-sm font-medium truncate">{chat.title}</CardTitle>
+                          <Badge variant="secondary" className="text-xs mt-1">
+                            {chat.bot.name}
+                          </Badge>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="flex space-x-1 ml-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleExportChat(chat)} className="h-8 w-8 p-0">
-                      <Icon icon="mdi:download" className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteChat(chat.id)}
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                    >
-                      <Icon icon="mdi:delete" className="w-4 h-4" />
-                    </Button>
+                    {editingChatId === chat.id ? (
+                      <>
+                        <Button size="sm" variant="ghost" onClick={() => handleSaveEdit(chat)}>
+                          <Icon icon="mdi:check" className="w-4 h-4 text-green-600" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => setEditingChatId(null)}>
+                          <Icon icon="mdi:close" className="w-4 h-4 text-gray-500" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditChat(chat)}
+                          className="h-8 w-8 p-0"
+                          title="Chỉnh sửa tên"
+                        >
+                          <Icon icon="mdi:pencil" className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleExportChat(chat)} className="h-8 w-8 p-0">
+                          <Icon icon="mdi:download" className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteChat(chat.id)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                        >
+                          <Icon icon="mdi:delete" className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -249,6 +319,7 @@ export default function HistoryPage() {
                     className="w-full"
                     onClick={() => {
                       localStorage.setItem("currentChat", JSON.stringify(chat));
+                      localStorage.setItem("currentBotId", chat.bot._id || chat.bot.id || chat.bot.name);
                       window.location.href = "/dashboard";
                     }}
                   >
