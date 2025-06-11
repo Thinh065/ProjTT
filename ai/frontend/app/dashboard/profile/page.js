@@ -1,15 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 
 export default function ProfilePage() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(null) // <-- Thêm dòng này
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -95,41 +93,41 @@ export default function ProfilePage() {
     }
   }
 
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
   if (!user) return null
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">Thông tin cá nhân</h1>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Avatar & Basic Info */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ảnh đại diện</CardTitle>
-            <CardDescription>Cập nhật ảnh đại diện của bạn</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center space-x-4">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={user.avatar || "/placeholder.svg"} />
-                <AvatarFallback>{user.name?.charAt(0)?.toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div>
-                <Label htmlFor="avatar" className="cursor-pointer">
-                  <Button variant="outline" asChild>
-                    <span>
-                      <Icon icon="mdi:camera" className="w-4 h-4 mr-2" />
-                      Thay đổi ảnh
-                    </span>
-                  </Button>
-                </Label>
+    <div className="container mx-auto p-6 max-w-2xl">
+      {/* Đổi ảnh đại diện */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Ảnh đại diện</CardTitle>
+          <CardDescription>Cập nhật ảnh đại diện của bạn</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col items-center">
+            <div className="relative mb-4">
+              <img
+                src={user.avatar || "/placeholder.svg"}
+                alt="avatar"
+                className="w-28 h-28 rounded-full object-cover border"
+              />
+              <label htmlFor="avatar" className="absolute bottom-2 right-2 bg-white rounded-full p-1 shadow cursor-pointer">
+                <Icon icon="mdi:camera" className="w-5 h-5 text-gray-500" />
                 <Input id="avatar" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-              </div>
+              </label>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Account Info */}
+      {/* Thông tin tài khoản và Đổi mật khẩu */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Thông tin tài khoản */}
         <Card>
           <CardHeader>
             <CardTitle>Thông tin tài khoản</CardTitle>
@@ -138,22 +136,25 @@ export default function ProfilePage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Họ và tên</Label>
+                <label htmlFor="name" className="font-medium">Họ và tên</label>
                 <Input
                   id="name"
+                  type="text"
+                  name="name"
+                  autoComplete="name" // <-- Đúng chuẩn React
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={handleChange}
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <label htmlFor="email" className="font-medium">Email</label>
                 <Input id="email" type="email" value={formData.email} disabled className="bg-gray-50" />
               </div>
               <div className="space-y-2">
-                <Label>Vai trò</Label>
+                <label className="font-medium">Vai trò</label>
                 <Input value={user.role === "admin" ? "Quản trị viên" : "Người dùng"} disabled className="bg-gray-50" />
               </div>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
                     <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
@@ -167,42 +168,45 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Change Password */}
-        <Card className="md:col-span-2">
+        {/* Đổi mật khẩu */}
+        <Card>
           <CardHeader>
             <CardTitle>Đổi mật khẩu</CardTitle>
             <CardDescription>Cập nhật mật khẩu để bảo mật tài khoản</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+            <form onSubmit={handlePasswordChange} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Mật khẩu hiện tại</Label>
+                <label htmlFor="currentPassword" className="font-medium">Mật khẩu hiện tại</label>
                 <Input
                   id="currentPassword"
                   type="password"
                   value={formData.currentPassword}
-                  onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                  onChange={e => setFormData({ ...formData, currentPassword: e.target.value })}
+                  autoComplete="current-password" // thêm dòng này
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="newPassword">Mật khẩu mới</Label>
+                <label htmlFor="newPassword" className="font-medium">Mật khẩu mới</label>
                 <Input
                   id="newPassword"
                   type="password"
                   value={formData.newPassword}
-                  onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                  onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                  autoComplete="new-password" // thêm dòng này
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
+                <label htmlFor="confirmPassword" className="font-medium">Xác nhận mật khẩu mới</label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                  autoComplete="new-password" // thêm dòng này
                 />
               </div>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
                     <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />

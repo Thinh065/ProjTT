@@ -5,6 +5,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import BotSelector from "@/components/chat/BotSelector"
 import ChatHistory from "@/components/chat/ChatHistory"
 import ChatInterface from "@/components/chat/ChatInterface"
+import { useSearchParams } from "next/navigation";
 
 export default function DashboardPage() {
   const [bots, setBots] = useState([])
@@ -14,20 +15,26 @@ export default function DashboardPage() {
   const [ConfirmDialog, showConfirm] = useConfirmDialog();
   const [editingTitle, setEditingTitle] = useState("");
   const [editingChat, setEditingChat] = useState(null);
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const urlBotId = searchParams?.get("botId");
+  const urlChatId = searchParams?.get("chatId");
 
   // Lấy danh sách ChatBot từ backend
   useEffect(() => {
     fetch("http://localhost:5000/api/apikeys")
       .then((res) => res.json())
       .then((data) => {
-        // Lọc bot chưa bị ẩn
         const visibleBots = data.filter(b => !b.hidden)
         setBots(visibleBots)
-        // Ưu tiên lấy botId/chatId từ localStorage nếu có
-        const botId = localStorage.getItem("currentBotId");
+        // Ưu tiên lấy botId/chatId từ URL nếu có
         let bot = null;
-        if (botId) {
-          bot = visibleBots.find(b => b._id === botId || b.id === botId);
+        if (urlBotId) {
+          bot = visibleBots.find(b => b._id === urlBotId || b.id === urlBotId);
+        } else {
+          const botId = localStorage.getItem("currentBotId");
+          if (botId) {
+            bot = visibleBots.find(b => b._id === botId || b.id === botId);
+          }
         }
         if (bot) {
           setSelectedBot(bot);
@@ -35,7 +42,7 @@ export default function DashboardPage() {
           setSelectedBot(visibleBots[0]);
         }
       })
-  }, [])
+  }, [urlBotId]);
 
   // Khi đổi bot, đọc lịch sử chat từ localStorage
   useEffect(() => {
@@ -50,28 +57,26 @@ export default function DashboardPage() {
     const historyKey = `chatHistory_${userId}_${botKey}`
     let history = JSON.parse(localStorage.getItem(historyKey) || "[]")
 
-    // --- Đồng bộ tên chat từ "all" ---
-    const allHistory = JSON.parse(localStorage.getItem(`chatHistory_${userId}_all`) || "[]")
-    history = history.map(chat => {
-      const updated = allHistory.find(c => c.id === chat.id)
-      return updated ? { ...chat, title: updated.title } : chat
-    })
-
-    // Ưu tiên lấy chat từ localStorage nếu có
-    let chat = null
-    const chatData = localStorage.getItem("currentChat")
-    if (chatData) {
-      try {
-        const parsed = JSON.parse(chatData)
-        chat = history.find(c => String(c.id) === String(parsed.id))
-        setChatHistory(history)
-        setCurrentChat(chat || history[0] || null)
-        return
-      } catch {}
+    // Ưu tiên lấy chatId từ URL nếu có
+    let chat = null;
+    if (urlChatId) {
+      chat = history.find(c => String(c.id) === String(urlChatId));
+    } else {
+      // Ưu tiên lấy chat từ localStorage nếu có
+      const chatData = localStorage.getItem("currentChat")
+      if (chatData) {
+        try {
+          const parsed = JSON.parse(chatData)
+          chat = history.find(c => String(c.id) === String(parsed.id))
+          setChatHistory(history)
+          setCurrentChat(chat || history[0] || null)
+          return
+        } catch {}
+      }
     }
     setChatHistory(history)
-    setCurrentChat(history[0] || null)
-  }, [selectedBot])
+    setCurrentChat(chat || history[0] || null)
+  }, [selectedBot, urlChatId])
 
   // Lấy lại chat mới nhất từ localStorage khi vào Dashboard
   useEffect(() => {
@@ -177,6 +182,18 @@ export default function DashboardPage() {
       localStorage.setItem(botHistoryKey, JSON.stringify(botHistory));
     }
   };
+
+  // Đọc lịch sử chat từ localStorage khi đổi bot
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
+    if (!userId || !selectedBot) return;
+    const botKey = selectedBot._id || selectedBot.id || selectedBot.name;
+    const historyKey = `chatHistory_${userId}_${botKey}`;
+    const history = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    setChatHistory(history);
+    setCurrentChat(history[0] || null);
+  }, [selectedBot, typeof window !== "undefined" && localStorage.getItem("user")]);
 
   return (
     <div className="flex h-full">

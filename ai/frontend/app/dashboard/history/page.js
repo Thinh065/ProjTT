@@ -316,14 +316,13 @@ export default function HistoryPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
                     onClick={() => {
-                      localStorage.setItem("currentChat", JSON.stringify(chat));
-                      localStorage.setItem("currentBotId", chat.bot._id || chat.bot.id || chat.bot.name);
-                      window.location.href = "/dashboard";
+                      // Truyền cả botId và chatId lên URL
+                      const botId = chat.bot?._id || chat.bot?.id;
+                      window.location.href = `/dashboard?botId=${botId}&chatId=${chat.id}`;
                     }}
                   >
-                    <Icon icon="mdi:eye" className="w-4 h-4 mr-2" />
+                    <Icon icon="mdi:eye-outline" className="w-4 h-4 mr-1" />
                     Xem chi tiết
                   </Button>
                 </div>
