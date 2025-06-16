@@ -172,15 +172,6 @@ export default function ProfilePage() {
                 <label className="font-medium">Vai trò</label>
                 <Input value={user.role === "admin" ? "Quản trị viên" : "Người dùng"} disabled className="bg-gray-50" />
               </div>
-              <input
-                type="text"
-                name="username"
-                autoComplete="username"
-                value={user?.email || ""}
-                style={{ display: "none" }}
-                tabIndex={-1}
-                readOnly
-              />
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
