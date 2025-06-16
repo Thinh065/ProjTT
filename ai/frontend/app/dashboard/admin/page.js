@@ -432,7 +432,16 @@ export default function AdminPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          {/* Nút xóa */}
+                          {/* Nút Ẩn/Hiện */}
+                          <button
+                            className={`px-2 py-1 rounded text-xs ${ai.hidden ? "bg-green-500 text-white" : "bg-gray-300 text-black"}`}
+
+                            onClick={() => handleHideAiKey(ai._id, !ai.hidden)}
+                            title={ai.hidden ? "Hiện bot" : "Ẩn bot"}
+                          >
+                            {ai.hidden ? "Hiện" : "Ẩn"}
+                          </button>
+                          {/* Nút Xóa */}
                           <Button
                             size="sm"
                             variant="destructive"
