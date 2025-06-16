@@ -44,21 +44,36 @@ export default function ProfilePage() {
       setUser(updatedUser)
       setLoading(false)
       alert("Cập nhật thông tin thành công!")
+      // Sau khi đổi tên thành công
+      window.location.href = "/dashboard/admin"
+      // hoặc nếu đang ở trang admin thì:
+      window.location.reload()
     }, 1000)
   }
-
+  
   const handlePasswordChange = async (e) => {
     e.preventDefault()
     if (formData.newPassword !== formData.confirmPassword) {
       alert("Mật khẩu mới không khớp!")
       return
     }
-
     setLoading(true)
-
-    // Mock change password
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      const token = localStorage.getItem("token")
+      const user = JSON.parse(localStorage.getItem("user") || "{}")
+      const res = await fetch(`http://localhost:5000/api/users/${user._id}/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
       setFormData({
         ...formData,
         currentPassword: "",
@@ -66,7 +81,10 @@ export default function ProfilePage() {
         confirmPassword: "",
       })
       alert("Đổi mật khẩu thành công!")
-    }, 1000)
+    } catch (err) {
+      alert(err.message)
+    }
+    setLoading(false)
   }
 
   const handleAvatarChange = async (e) => {
@@ -154,6 +172,15 @@ export default function ProfilePage() {
                 <label className="font-medium">Vai trò</label>
                 <Input value={user.role === "admin" ? "Quản trị viên" : "Người dùng"} disabled className="bg-gray-50" />
               </div>
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={user?.email || ""}
+                style={{ display: "none" }}
+                tabIndex={-1}
+                readOnly
+              />
               <Button type="submit" disabled={loading} className="w-full">
                 {loading ? (
                   <>
