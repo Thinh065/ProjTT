@@ -137,6 +137,7 @@ export default function RegisterPage() {
                 value={formData.email}
                 onChange={handleChange}
                 required
+                autoComplete="username"
               />
             </div>
             <div className="space-y-2">

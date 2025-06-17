@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null) // <-- Thêm dòng này
@@ -16,6 +17,7 @@ export default function ProfilePage() {
     confirmPassword: "",
   })
   const [loading, setLoading] = useState(false)
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
   useEffect(() => {
     const userData = localStorage.getItem("user")
@@ -54,7 +56,7 @@ export default function ProfilePage() {
   const handlePasswordChange = async (e) => {
     e.preventDefault()
     if (formData.newPassword !== formData.confirmPassword) {
-      alert("Mật khẩu mới không khớp!")
+      showConfirm({ message: "Mật khẩu mới không khớp!", onlyClose: true }) // Thay alert
       return
     }
     setLoading(true)
@@ -80,9 +82,9 @@ export default function ProfilePage() {
         newPassword: "",
         confirmPassword: "",
       })
-      alert("Đổi mật khẩu thành công!")
+      showConfirm({ message: "Đổi mật khẩu thành công!", onlyClose: true }) // Thay alert
     } catch (err) {
-      alert(err.message)
+      showConfirm({ message: err.message, onlyClose: true }) // Thay alert
     }
     setLoading(false)
   }
@@ -119,125 +121,134 @@ export default function ProfilePage() {
   if (!user) return null
 
   return (
-    <div className="container mx-auto p-6 max-w-2xl">
-      {/* Đổi ảnh đại diện */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Ảnh đại diện</CardTitle>
-          <CardDescription>Cập nhật ảnh đại diện của bạn</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center">
-            <div className="relative mb-4">
-              <img
-                src={user.avatar || "/placeholder.svg"}
-                alt="avatar"
-                className="w-28 h-28 rounded-full object-cover border"
-              />
-              <label htmlFor="avatar" className="absolute bottom-2 right-2 bg-white rounded-full p-1 shadow cursor-pointer">
-                <Icon icon="mdi:camera" className="w-5 h-5 text-gray-500" />
-                <Input id="avatar" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-              </label>
+    <>
+      {ConfirmDialog}
+      <div className="container mx-auto p-6 max-w-2xl">
+        {/* Đổi ảnh đại diện */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Ảnh đại diện</CardTitle>
+            <CardDescription>Cập nhật ảnh đại diện của bạn</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center">
+              <div className="relative mb-4">
+                <img
+                  src={user.avatar || "/placeholder.svg"}
+                  alt="avatar"
+                  className="w-28 h-28 rounded-full object-cover border"
+                />
+                <label htmlFor="avatar" className="absolute bottom-2 right-2 bg-white rounded-full p-1 shadow cursor-pointer">
+                  <Icon icon="mdi:camera" className="w-5 h-5 text-gray-500" />
+                  <Input id="avatar" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                </label>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Thông tin tài khoản và Đổi mật khẩu */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Thông tin tài khoản */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Thông tin tài khoản</CardTitle>
-            <CardDescription>Cập nhật thông tin cơ bản</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="name" className="font-medium">Họ và tên</label>
-                <Input
-                  id="name"
-                  type="text"
-                  name="name"
-                  autoComplete="name" // <-- Đúng chuẩn React
-                  value={formData.name}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="email" className="font-medium">Email</label>
-                <Input id="email" type="email" value={formData.email} disabled className="bg-gray-50" />
-              </div>
-              <div className="space-y-2">
-                <label className="font-medium">Vai trò</label>
-                <Input value={user.role === "admin" ? "Quản trị viên" : "Người dùng"} disabled className="bg-gray-50" />
-              </div>
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? (
-                  <>
-                    <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
-                    Đang cập nhật...
-                  </>
-                ) : (
-                  "Cập nhật thông tin"
-                )}
-              </Button>
-            </form>
           </CardContent>
         </Card>
 
-        {/* Đổi mật khẩu */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Đổi mật khẩu</CardTitle>
-            <CardDescription>Cập nhật mật khẩu để bảo mật tài khoản</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordChange} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="currentPassword" className="font-medium">Mật khẩu hiện tại</label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={formData.currentPassword}
-                  onChange={e => setFormData({ ...formData, currentPassword: e.target.value })}
-                  autoComplete="current-password" // thêm dòng này
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="newPassword" className="font-medium">Mật khẩu mới</label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={formData.newPassword}
-                  onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
-                  autoComplete="new-password" // thêm dòng này
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="font-medium">Xác nhận mật khẩu mới</label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  autoComplete="new-password" // thêm dòng này
-                />
-              </div>
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? (
-                  <>
-                    <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
-                    Đang cập nhật...
-                  </>
-                ) : (
-                  "Đổi mật khẩu"
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        {/* Thông tin tài khoản và Đổi mật khẩu */}
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Thông tin tài khoản */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Thông tin tài khoản</CardTitle>
+              <CardDescription>Cập nhật thông tin cơ bản</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="name" className="font-medium">Họ và tên</label>
+                  <Input
+                    id="name"
+                    type="text"
+                    name="name"
+                    autoComplete="name" 
+                    value={formData.name}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="email" className="font-medium">Email</label>
+                  <Input 
+                  id="email" 
+                  type="email" 
+                  value={formData.email} 
+                  disabled 
+                  className="bg-gray-50" 
+                  autoComplete="username"/>
+                </div>
+                <div className="space-y-2">
+                  <label className="font-medium">Vai trò</label>
+                  <Input value={user.role === "admin" ? "Quản trị viên" : "Người dùng"} disabled className="bg-gray-50" />
+                </div>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? (
+                    <>
+                      <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
+                      Đang cập nhật...
+                    </>
+                  ) : (
+                    "Cập nhật thông tin"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+
+          {/* Đổi mật khẩu */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Đổi mật khẩu</CardTitle>
+              <CardDescription>Cập nhật mật khẩu để bảo mật tài khoản</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordChange} className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="currentPassword" className="font-medium">Mật khẩu hiện tại</label>
+                  <Input
+                    id="currentPassword"
+                    type="password"
+                    value={formData.currentPassword}
+                    onChange={e => setFormData({ ...formData, currentPassword: e.target.value })}
+                    autoComplete="current-password" // thêm dòng này
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="newPassword" className="font-medium">Mật khẩu mới</label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={formData.newPassword}
+                    onChange={e => setFormData({ ...formData, newPassword: e.target.value })}
+                    autoComplete="new-password" // thêm dòng này
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="confirmPassword" className="font-medium">Xác nhận mật khẩu mới</label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+                    autoComplete="new-password" // thêm dòng này
+                  />
+                </div>
+                <Button type="submit" disabled={loading} className="w-full">
+                  {loading ? (
+                    <>
+                      <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
+                      Đang cập nhật...
+                    </>
+                  ) : (
+                    "Đổi mật khẩu"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
