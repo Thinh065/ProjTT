@@ -15,6 +15,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     scrollToBottom()
@@ -25,8 +26,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
   }
 
   const handleSend = async (e) => {
-    e.preventDefault()
-    if (!input.trim() || isTyping) return
+    e.preventDefault();
+    if (!input.trim() || isTyping) return;
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
@@ -163,6 +164,14 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     })
   }
 
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "40px"; // reset trước
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    }
+  };
+
   if (!bot) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -231,7 +240,9 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                     </ReactMarkdown>
                   </div>
                 ) : (
-                  msg.content
+                  <div className="..." dangerouslySetInnerHTML={{
+                  __html: msg.content.replace(/\n/g, "<br />")
+                }} />
                 )}
               </div>
 
@@ -265,17 +276,32 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
       {/* Input */}
       <div className="bg-white border-t border-gray-200 p-4 min-w-0 w-full">
-        <form onSubmit={handleSend} className="flex space-x-2 min-w-0 w-full">
-          <Input
+        <form
+          onSubmit={handleSend}
+          className="flex items-end gap-2 p-4 border-t bg-white"
+        >
+          <textarea
+            ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={`Nhắn tin cho ${bot.name}...`}
-            disabled={isTyping}
-            className="flex-1 min-w-0"
+            onChange={handleInputChange}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend(e);
+              }
+            }}
+            placeholder="Nhập tin nhắn..."
+            className="flex-1 rounded-md border px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+            rows={1}
+            style={{ minHeight: 40, maxHeight: 200, overflow: "auto" }}
           />
-          <Button type="submit" disabled={!input.trim() || isTyping}>
-            <Icon icon="mdi:send" className="w-4 h-4" />
-          </Button>
+          <button
+            type="submit"
+            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
+            disabled={!input.trim() || isTyping}
+          >
+            Gửi
+          </button>
         </form>
       </div>
     </div>

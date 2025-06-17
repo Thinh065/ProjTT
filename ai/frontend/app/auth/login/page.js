@@ -76,8 +76,9 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
+                  type="password"
+                  placeholder="********"
+                  autoComplete="current-password"
                   value={formData.password}
                   onChange={handleChange}
                   required
