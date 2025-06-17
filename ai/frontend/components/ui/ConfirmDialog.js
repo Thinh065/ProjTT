@@ -16,7 +16,7 @@ export function useConfirmDialog() {
   // Component ConfirmDialog
   const ConfirmDialog = open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-      <div className="bg-white rounded shadow-lg p-6 min-w-[320px]">
+      <div className="bg-white rounded shadow-lg p-6 min-w-[320px] max-w-[90vw] w-auto">
         <div className="mb-4 text-base">{message}</div>
         <div className="flex justify-end gap-2">
           {!onlyClose && (
@@ -31,7 +31,7 @@ export function useConfirmDialog() {
             </button>
           )}
           <button
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+            className="px-4 py-2 bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
             onClick={() => setOpen(false)}
           >
             Đóng

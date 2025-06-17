@@ -4,6 +4,7 @@ const auth = require("../middleware/auth")
 const multer = require("multer")
 const path = require("path")
 const uploadCloud = require("../middleware/cloudinary")
+const bcrypt = require("bcryptjs")
 
 // Middleware kiểm tra quyền admin
 const requireAdmin = (req, res, next) => {
@@ -80,6 +81,28 @@ router.post("/users/:id/avatar", auth, uploadCloud.single("avatar"), async (req,
     { new: true }
   ).select("-password")
   res.json({ avatar: avatarUrl, user })
+})
+
+// Đổi mật khẩu user
+router.post("/users/:id/change-password", auth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: "Thiếu thông tin mật khẩu" })
+  }
+  const user = await require("../models/User").findById(req.params.id)
+  if (!user) return res.status(404).json({ message: "Không tìm thấy user" })
+
+  // Chỉ cho phép đổi mật khẩu của chính mình hoặc admin
+  if (req.user._id.toString() !== req.params.id && req.user.role !== "admin") {
+    return res.status(403).json({ message: "Không có quyền đổi mật khẩu" })
+  }
+
+  const match = await bcrypt.compare(currentPassword, user.password)
+  if (!match) return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" })
+
+  user.password = await bcrypt.hash(newPassword, 10)
+  await user.save()
+  res.json({ message: "Đổi mật khẩu thành công" })
 })
 
 module.exports = router
