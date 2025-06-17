@@ -56,7 +56,18 @@ export default function LoginPage() {
           <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
           <CardDescription>Đăng nhập vào tài khoản Multi ChatBot AI của bạn</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          {/* Trường username ẩn cho accessibility */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            style={{ display: "none" }}
+            tabIndex={-1}
+            aria-hidden="true"
+            value={formData.email || ""}
+            readOnly
+          />
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
