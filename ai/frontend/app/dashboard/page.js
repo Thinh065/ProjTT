@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
+  const [loading, setLoading] = useState(true) // <-- Thêm state loading
   const [ConfirmDialog, showConfirm] = useConfirmDialog();
   const [editingTitle, setEditingTitle] = useState("");
   const [editingChat, setEditingChat] = useState(null);
@@ -21,12 +22,12 @@ export default function DashboardPage() {
 
   // Lấy danh sách ChatBot từ backend
   useEffect(() => {
+    setLoading(true)
     fetch("http://localhost:5000/api/apikeys")
       .then((res) => res.json())
       .then((data) => {
         const visibleBots = data.filter(b => !b.hidden)
         setBots(visibleBots)
-        // Ưu tiên lấy botId/chatId từ URL nếu có
         let bot = null;
         if (urlBotId) {
           bot = visibleBots.find(b => b._id === urlBotId || b.id === urlBotId);
@@ -36,11 +37,14 @@ export default function DashboardPage() {
             bot = visibleBots.find(b => b._id === botId || b.id === botId);
           }
         }
-        if (bot) {
+        if (visibleBots.length === 0) {
+          setSelectedBot(null); // <-- Không còn bot nào, set null
+        } else if (bot) {
           setSelectedBot(bot);
-        } else if (visibleBots.length > 0) {
+        } else {
           setSelectedBot(visibleBots[0]);
         }
+        setLoading(false)
       })
   }, [urlBotId]);
 
@@ -76,6 +80,7 @@ export default function DashboardPage() {
     }
     setChatHistory(history)
     setCurrentChat(chat || history[0] || null)
+    setLoading(false) // <-- Đảm bảo setLoading(false) khi xong
   }, [selectedBot, urlChatId])
 
   // Lấy lại chat mới nhất từ localStorage khi vào Dashboard
@@ -194,6 +199,17 @@ export default function DashboardPage() {
     setChatHistory(history);
     setCurrentChat(history[0] || null);
   }, [selectedBot, typeof window !== "undefined" && localStorage.getItem("user")]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+          <div className="text-gray-500">Đang tải dữ liệu...</div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full">
