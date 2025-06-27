@@ -18,10 +18,10 @@ export function useConfirmDialog() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
       <div className="bg-white rounded shadow-lg p-6 min-w-[320px] max-w-[90vw] w-auto">
         <div className="mb-4 text-base">{message}</div>
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end">
           {!onlyClose && (
             <button
-              className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+              className="px-4 py-2 mr-2 bg-red-500 text-white rounded hover:bg-red-600"
               onClick={() => {
                 setOpen(false)
                 if (onConfirm) onConfirm()
@@ -31,7 +31,7 @@ export function useConfirmDialog() {
             </button>
           )}
           <button
-            className="px-4 py-2 bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
+            className="px-5 py-2 bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
             onClick={() => setOpen(false)}
           >
             Đóng

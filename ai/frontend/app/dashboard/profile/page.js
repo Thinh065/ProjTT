@@ -35,22 +35,39 @@ export default function ProfilePage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-
-    // Mock update profile
-    setTimeout(() => {
-      const updatedUser = {
-        ...user,
-        name: formData.name,
-      }
+    try {
+      const token = localStorage.getItem("token")
+      const user = JSON.parse(localStorage.getItem("user") || "{}")
+      // Gọi API cập nhật tên trên server
+      const res = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: formData.name }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.message)
+      // Cập nhật localStorage và state
+      const updatedUser = { ...user, name: data.name }
       localStorage.setItem("user", JSON.stringify(updatedUser))
       setUser(updatedUser)
       setLoading(false)
-      alert("Cập nhật thông tin thành công!")
-      // Sau khi đổi tên thành công
-      window.location.href = "/dashboard/admin"
-      // hoặc nếu đang ở trang admin thì:
-      window.location.reload()
-    }, 1000)
+      showConfirm({
+        message: "Cập nhật thông tin thành công!",
+        onlyClose: true,
+        onConfirm: () => {
+          window.location.reload()
+        }
+      })
+    } catch (err) {
+      setLoading(false)
+      showConfirm({
+        message: err.message || "Có lỗi xảy ra!",
+        onlyClose: true
+      })
+    }
   }
   
   const handlePasswordChange = async (e) => {
