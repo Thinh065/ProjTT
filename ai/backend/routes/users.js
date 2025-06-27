@@ -1,5 +1,6 @@
 const express = require("express")
 const router = express.Router()
+const User = require("../models/User")
 const auth = require("../middleware/auth")
 const multer = require("multer")
 const path = require("path")
@@ -103,6 +104,22 @@ router.post("/users/:id/change-password", auth, async (req, res) => {
   user.password = await bcrypt.hash(newPassword, 10)
   await user.save()
   res.json({ message: "Đổi mật khẩu thành công" })
+})
+
+// Cập nhật thông tin cơ bản (tên, avatar)
+router.patch("/users/:id", auth, async (req, res) => {
+  if (req.user._id.toString() !== req.params.id && req.user.role !== "admin") {
+    return res.status(403).json({ message: "Không có quyền" })
+  }
+  const { name } = req.body
+  if (!name) return res.status(400).json({ message: "Thiếu tên" })
+  const user = await require("../models/User").findByIdAndUpdate(
+    req.params.id,
+    { name },
+    { new: true }
+  ).select("-password")
+  if (!user) return res.status(404).json({ message: "Không tìm thấy user" })
+  res.json(user)
 })
 
 module.exports = router
