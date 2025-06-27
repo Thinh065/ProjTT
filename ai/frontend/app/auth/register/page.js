@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Icon } from "@iconify/react"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function RegisterPage() {
   const [avatarFile, setAvatarFile] = useState(null)
@@ -23,6 +24,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   const router = useRouter()
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0]
@@ -51,7 +53,7 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (formData.password !== formData.confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp!")
+      showConfirm({ message: "Mật khẩu xác nhận không khớp!", onlyClose: true })
       return
     }
     setLoading(true)
@@ -63,15 +65,20 @@ export default function RegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          avatar: formData.avatar, // gửi avatar url
+          avatar: formData.avatar,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message)
-      alert("Đăng ký thành công! Vui lòng đăng nhập.")
-      router.push("/auth/login")
+      showConfirm({
+        message: "Đăng ký thành công! Vui lòng đăng nhập.",
+        onlyClose: true,
+        onConfirm: () => {
+          router.push("/auth/login")
+        }
+      })
     } catch (err) {
-      alert(err.message)
+      showConfirm({ message: err.message, onlyClose: true })
     }
     setLoading(false)
   }
@@ -196,6 +203,7 @@ export default function RegisterPage() {
           </CardFooter>
         </form>
       </Card>
+      {ConfirmDialog}
     </div>
   )
 }
