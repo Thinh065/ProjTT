@@ -15,6 +15,7 @@ app.use("/api/auth", require("./routes/auth"))
 
 const authMiddleware = require("./middleware/auth")
 app.use("/api", require("./routes/users"))
+app.use("/api/users", require("./routes/users"))
 app.use("/api/apikeys", require("./routes/apikey"))
 app.use("/api/upload", require("./routes/upload"))
 app.use("/uploads", express.static("uploads"))

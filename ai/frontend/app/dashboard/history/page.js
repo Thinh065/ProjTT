@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
-import { useConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useRouter } from "next/navigation"
 
 export default function HistoryPage() {
   const [chatHistory, setChatHistory] = useState([])
@@ -18,6 +19,22 @@ export default function HistoryPage() {
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
   const [editingChatId, setEditingChatId] = useState(null)
   const [editingTitle, setEditingTitle] = useState("")
+  const router = useRouter()
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    if (user.status === "blocked") {
+      showConfirm({
+        message: "Tài khoản đã tạm thời bị chặn!",
+        onlyClose: true,
+        onConfirm: () => {
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          router.push("/auth/login")
+        }
+      })
+    }
+  }, [])
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
