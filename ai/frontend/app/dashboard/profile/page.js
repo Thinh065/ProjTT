@@ -20,6 +20,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false)
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
   const router = useRouter()
+  const [avatarKey, setAvatarKey] = useState(Date.now());
+  const [avatarPreview, setAvatarPreview] = useState(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user")
@@ -123,27 +125,37 @@ export default function ProfilePage() {
     setLoading(false)
   }
 
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files[0]
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
     if (file) {
-      const formData = new FormData()
-      formData.append("avatar", file)
-      const token = localStorage.getItem("token")
-      const user = JSON.parse(localStorage.getItem("user") || "{}")
-      // SỬA ĐÚNG endpoint:
-      const res = await fetch(`http://localhost:5000/api/users/${user._id}/avatar`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      })
-      const data = await res.json()
-      if (data.avatar || data.user?.avatar) {
-        // Cập nhật localStorage và state
-        const newUser = { ...user, avatar: data.avatar || data.user.avatar }
-        localStorage.setItem("user", JSON.stringify(newUser))
-        setUser(newUser)
-        // Nếu dùng context hoặc redux, cũng cần cập nhật ở đó
-      }
+      // Hiển thị ảnh preview ngay lập tức
+      setAvatarPreview(URL.createObjectURL(file));
+      // Gửi file lên server như cũ
+      uploadAvatar(file);
+    }
+  };
+
+  const uploadAvatar = async (file) => {
+    const formData = new FormData()
+    formData.append("avatar", file)
+    const token = localStorage.getItem("token")
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    // SỬA ĐÚNG endpoint:
+    const res = await fetch(`http://localhost:5000/api/users/${user._id}/avatar`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    const data = await res.json()
+    if (data.avatar || data.user?.avatar) {
+      // Thêm query string để ép reload ảnh mới
+      const avatarUrl = (data.avatar || data.user.avatar) + "?t=" + Date.now();
+      const newUser = { ...user, avatar: avatarUrl }
+      localStorage.setItem("user", JSON.stringify(newUser))
+      setUser(newUser)
+      setAvatarKey(Date.now()); // ép img render lại
+      // Tự động reload lại trang để đồng bộ mọi thứ
+      window.location.reload();
     }
   }
 
@@ -151,6 +163,15 @@ export default function ProfilePage() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
+
+  const handleUploadSuccess = (newAvatarUrl) => {
+    // Thêm query string để tránh cache
+    const avatarWithQS = newAvatarUrl + "?t=" + Date.now();
+    const newUser = { ...user, avatar: avatarWithQS };
+    setUser(newUser);
+    localStorage.setItem("user", JSON.stringify(newUser));
+    setAvatarKey(Date.now()); // ép <img> render lại
+  };
 
   if (!user) return null
 
@@ -168,7 +189,8 @@ export default function ProfilePage() {
             <div className="flex flex-col items-center">
               <div className="relative mb-4">
                 <img
-                  src={user.avatar || "/placeholder.svg"}
+                  key={avatarKey}
+                  src={avatarPreview || user.avatar || "/placeholder.svg"}
                   alt="avatar"
                   className="w-28 h-28 rounded-full object-cover border"
                 />
