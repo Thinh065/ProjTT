@@ -305,11 +305,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
       {/* Input */}
       <div className="bg-white border-t border-gray-200 p-4 min-w-0 w-full">
-        <form
-          className="flex gap-2 items-end"
-          onSubmit={handleSend}
-          style={{ marginTop: "auto" }}
-        >
+        <form className="flex gap-2 items-end px-2 py-2 md:px-4 md:py-4" onSubmit={handleSend}>
           <textarea
             ref={textareaRef}
             value={input}
@@ -321,14 +317,13 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
               }
             }}
             placeholder="Nhập tin nhắn..."
-            className="flex-1 rounded-md border px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="flex-1 rounded-md border px-3 py-2 text-base resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
             rows={1}
             style={{ minHeight: 40, maxHeight: 200, overflow: "auto" }}
           />
           <button
             type="submit"
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition"
-            disabled={!input.trim() || isTyping}
+            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition w-16 md:w-auto"
           >
             Gửi
           </button>

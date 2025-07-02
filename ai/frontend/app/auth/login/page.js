@@ -104,7 +104,7 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"} // <-- sửa dòng này
                   placeholder="********"
                   autoComplete="current-password"
                   value={formData.password}
