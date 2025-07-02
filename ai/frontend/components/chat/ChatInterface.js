@@ -8,6 +8,8 @@ import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useRouter } from "next/navigation"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messages = chat?.messages || [];
@@ -16,10 +18,27 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
   const textareaRef = useRef(null);
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
+  const router = useRouter()
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    if (user.status === "blocked") {
+      showConfirm({
+        message: "Tài khoản đã tạm thời bị chặn!",
+        onlyClose: true,
+        onConfirm: () => {
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          window.location.href = "/auth/login"
+        }
+      })
+    }
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -240,9 +259,9 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                     </ReactMarkdown>
                   </div>
                 ) : (
-                  <div className="..." dangerouslySetInnerHTML={{
-                  __html: msg.content.replace(/\n/g, "<br />")
-                }} />
+                  <div className="whitespace-pre-line break-words">
+                    {msg.content}
+                  </div>
                 )}
               </div>
 

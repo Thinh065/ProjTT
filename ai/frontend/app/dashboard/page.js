@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import BotSelector from "@/components/chat/BotSelector"
 import ChatHistory from "@/components/chat/ChatHistory"
 import ChatInterface from "@/components/chat/ChatInterface"
-import { useSearchParams } from "next/navigation";
 
 export default function DashboardPage() {
   const [bots, setBots] = useState([])
@@ -13,12 +13,29 @@ export default function DashboardPage() {
   const [currentChat, setCurrentChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
   const [loading, setLoading] = useState(true) // <-- Thêm state loading
-  const [ConfirmDialog, showConfirm] = useConfirmDialog();
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
+  const router = useRouter()
+
   const [editingTitle, setEditingTitle] = useState("");
   const [editingChat, setEditingChat] = useState(null);
   const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
   const urlBotId = searchParams?.get("botId");
   const urlChatId = searchParams?.get("chatId");
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    if (user.status === "blocked") {
+      showConfirm({
+        message: "Tài khoản đã tạm thời bị chặn!",
+        onlyClose: true,
+        onConfirm: () => {
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          router.push("/auth/login")
+        }
+      })
+    }
+  }, [])
 
   // Lấy danh sách ChatBot từ backend
   useEffect(() => {

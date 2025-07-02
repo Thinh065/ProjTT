@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import { useRouter } from "next/navigation"
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null) // <-- Thêm dòng này
@@ -18,6 +19,7 @@ export default function ProfilePage() {
   })
   const [loading, setLoading] = useState(false)
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
+  const router = useRouter()
 
   useEffect(() => {
     const userData = localStorage.getItem("user")
@@ -28,6 +30,21 @@ export default function ProfilePage() {
         ...formData,
         name: user.name,
         email: user.email,
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    if (user.status === "blocked") {
+      showConfirm({
+        message: "Tài khoản đã tạm thời bị chặn!",
+        onlyClose: true,
+        onConfirm: () => {
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          router.push("/auth/login")
+        }
       })
     }
   }, [])

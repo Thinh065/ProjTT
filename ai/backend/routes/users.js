@@ -105,4 +105,18 @@ router.post("/users/:id/change-password", auth, async (req, res) => {
   res.json({ message: "Đổi mật khẩu thành công" })
 })
 
+// Cập nhật thông tin user (chỉ cho phép cập nhật tên)
+router.patch("/:id", auth, async (req, res) => {
+  const { name } = req.body
+  if (!name) {
+    return res.status(400).json({ message: "Thiếu thông tin tên" })
+  }
+  const user = await require("../models/User").findByIdAndUpdate(
+    req.params.id,
+    { name },
+    { new: true }
+  ).select("-password")
+  res.json(user)
+})
+
 module.exports = router
