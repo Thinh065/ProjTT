@@ -13,11 +13,12 @@ import { useRouter } from "next/navigation"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messages = chat?.messages || [];
-  const [input, setInput] = useState("")
+  const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef(null)
   const abortControllerRef = useRef(null)
   const textareaRef = useRef(null);
+
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
   const router = useRouter()
 
@@ -183,13 +184,22 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     })
   }
 
+  // Auto resize khi nhập
   const handleInputChange = (e) => {
     setInput(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "40px"; // reset trước
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + "px";
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "40px";
+      textarea.style.height = textarea.scrollHeight + "px";
     }
   };
+
+  // Reset chiều cao khi input rỗng (sau khi gửi)
+  useEffect(() => {
+    if (input === "" && textareaRef.current) {
+      textareaRef.current.style.height = "40px";
+    }
+  }, [input]);
 
   if (!bot) {
     return (
@@ -296,8 +306,9 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       {/* Input */}
       <div className="bg-white border-t border-gray-200 p-4 min-w-0 w-full">
         <form
+          className="flex gap-2 items-end"
           onSubmit={handleSend}
-          className="flex items-end gap-2 p-4 border-t bg-white"
+          style={{ marginTop: "auto" }}
         >
           <textarea
             ref={textareaRef}
