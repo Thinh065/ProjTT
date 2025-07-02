@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Icon } from "@iconify/react"
+import { useRouter } from "next/navigation"
+import { showConfirm } from "@/lib/utils"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -16,6 +18,22 @@ export default function ForgotPasswordPage() {
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
   const [chatHistory, setChatHistory] = useState([])
+  const router = useRouter()
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}")
+    if (user.status === "blocked") {
+      showConfirm({
+        message: "Tài khoản đã tạm thời bị chặn!",
+        onlyClose: true,
+        onConfirm: () => {
+          localStorage.removeItem("token")
+          localStorage.removeItem("user")
+          router.push("/auth/login")
+        }
+      })
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

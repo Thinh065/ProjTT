@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Icon } from "@iconify/react"
+import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
+  const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -28,15 +30,30 @@ export default function LoginPage() {
         body: JSON.stringify(formData),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.message)
+      if (!res.ok) {
+        showConfirm({ message: data.message || "Tài khoản hoặc mật khẩu không đúng", onlyClose: true })
+        setLoading(false)
+        return
+      }
+      if (data.user.status === "blocked") {
+        showConfirm({
+          message: "Tài khoản đã tạm thời bị chặn!",
+          onlyClose: true,
+          onConfirm: () => {
+            router.push("/auth/login")
+          }
+        })
+        setLoading(false)
+        return
+      }
       localStorage.setItem("token", data.token)
       localStorage.setItem("user", JSON.stringify(data.user))
       setLoading(false)
       router.push("/dashboard")
     } catch (err) {
-      alert(err.message)
-      setLoading(false)
+      showConfirm({ message: err.message || "Có lỗi xảy ra!", onlyClose: true })
     }
+    setLoading(false)
   }
 
   const handleChange = (e) => {
@@ -132,6 +149,7 @@ export default function LoginPage() {
           </CardFooter>
         </form>
       </Card>
+      {ConfirmDialog}
     </div>
   )
 }

@@ -98,7 +98,7 @@ export default function AdminPage() {
   // Đổi trạng thái user
   const handleChangeStatus = async (userId, newStatus) => {
     if (userId === currentUserId) {
-      alert("Không thể thay đổi trạng thái của chính bạn!")
+      showConfirm({ message: "Không thể thay đổi trạng thái của chính bạn!", onlyClose: true })
       return
     }
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
@@ -110,14 +110,17 @@ export default function AdminPage() {
       },
       body: JSON.stringify({ status: newStatus }),
     })
+    const data = await res.json()
     if (res.ok) {
-      const updatedUser = await res.json()
       setUsers((prev) =>
-        prev.map((u) => (u._id === userId ? { ...u, status: updatedUser.status } : u))
+        prev.map((u) => (u._id === userId ? { ...u, status: data.status } : u))
       )
+      showConfirm({
+        message: newStatus === "blocked" ? "Đã chặn người dùng!" : "Đã mở chặn người dùng!",
+        onlyClose: true,
+      })
     } else {
-      const data = await res.json()
-      alert(data.message || "Lỗi khi đổi trạng thái")
+      showConfirm({ message: data.message || "Lỗi khi đổi trạng thái", onlyClose: true })
     }
   }
 
@@ -272,26 +275,21 @@ export default function AdminPage() {
                     <TableCell>{user.createdAt}</TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        {/* Nút block/unblock */}
-                        {user._id !== currentUserId && (
-                          user.status === "active" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChangeStatus(user._id, "blocked")}
-                            >
-                              <Icon icon="mdi:block-helper" className="w-4 h-4" />
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChangeStatus(user._id, "active")}
-                            >
-                              <Icon icon="mdi:check" className="w-4 h-4" />
-                            </Button>
-                          )
-                        )}
+                        {/* Nút chặn/mở chặn */}
+                        <Button
+                          size="sm"
+                          variant={user.status === "blocked" ? "outline" : "destructive"}
+                          onClick={() =>
+                            showConfirm({
+                              message: user.status === "blocked"
+                                ? "Bạn có muốn mở chặn người dùng này?"
+                                : "Bạn có muốn chặn người dùng này?",
+                              onConfirm: () => handleChangeStatus(user._id, user.status === "blocked" ? "active" : "blocked"),
+                            })
+                          }
+                        >
+                          <Icon icon={user.status === "blocked" ? "mdi:lock-open-outline" : "mdi:lock-outline"} className="w-4 h-4" />
+                        </Button>
                         {/* Nút nâng/hạ quyền */}
                         {user._id !== currentUserId && (
                           user.role === "admin" ? (
