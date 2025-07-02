@@ -217,6 +217,31 @@ export default function DashboardPage() {
     setCurrentChat(history[0] || null);
   }, [selectedBot, typeof window !== "undefined" && localStorage.getItem("user")]);
 
+  // Kiểm tra trạng thái tài khoản mỗi 30s
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const token = localStorage.getItem("token");
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      if (!token || !user._id) return;
+      try {
+        const res = await fetch(`http://localhost:5000/api/auth/users`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const users = await res.json();
+        const me = users.find(u => u._id === user._id);
+        if (me && me.status === "blocked") {
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          window.location.href = "/auth/login";
+          alert("Tài khoản của bạn đã bị chặn!");
+        }
+      } catch {}
+    }, 30000); // 30 giây
+
+    return () => clearInterval(interval);
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
