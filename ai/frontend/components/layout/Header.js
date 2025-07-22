@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Icon } from "@iconify/react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
 export default function Header({ user, onMenuClick, onLogout }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const router = useRouter()
 
   useEffect(() => {
     function handleClick(e) {
@@ -81,7 +83,14 @@ export default function Header({ user, onMenuClick, onLogout }) {
               <div className="border-t">
                 <button
                   className="flex items-center w-full px-4 py-2 text-red-600 hover:bg-red-50"
-                  onClick={onLogout}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      localStorage.removeItem("token")
+                      localStorage.removeItem("user")
+                      router.push("/auth/login")
+                    }
+                    if (onLogout) onLogout()
+                  }}
                 >
                   <Icon icon="mdi:logout" className="w-5 h-5 mr-2" />
                   Đăng xuất
