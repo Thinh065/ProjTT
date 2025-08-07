@@ -81,7 +81,11 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
     // Gọi API thật tới backend
     try {
-      const res = await fetch("http://localhost:5000/api/chatbot/dynamic", {
+      const endpoint = bot._id === "esh-bot"
+        ? "http://localhost:5000/api/chatbot/gemini"
+        : "http://localhost:5000/api/chatbot/dynamic";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -156,6 +160,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       allHistory = allHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
       localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
     } catch (error) {
+      console.error("API call error:", error);
       if (error.name === "AbortError") {
         // Bị abort thì không làm gì cả
         return
@@ -176,6 +181,85 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       onChatUpdate(finalChat)
     }
   }
+
+  const handleSendMessage = async (input) => {
+    try {
+      // Validate bot configuration first
+      if (!bot.model || !bot.apiKey || !bot.baseURL) {
+        throw new Error("Bot configuration is incomplete");
+      }
+
+      const newMessages = [...messages, {
+        id: Date.now(),
+        role: "user",
+        content: input,
+        timestamp: new Date(),
+      }];
+
+      // Update UI immediately with user message
+      const updatedChat = {
+        id: chat?.id || Date.now(),
+        bot: { ...bot },
+        messages: newMessages,
+        title: chat?.title || input.trim().substring(0, 50) + "...",
+        lastMessage: input.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      onChatUpdate(updatedChat);
+
+      // Prepare API request
+      const endpoint = bot._id === "esh-bot"
+        ? "http://localhost:5000/api/chatbot/gemini"
+        : "http://localhost:5000/api/chatbot/dynamic";
+
+      const payload = {
+        model: bot.model,
+        messages: newMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        apiKey: bot.apiKey,
+        baseURL: bot.baseURL,
+      };
+
+      // Log request for debugging
+      console.log("Sending request to:", endpoint);
+      console.log("Request payload:", payload);
+
+      const res = await fetch(endpoint, {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      // Handle response
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to get AI response");
+      }
+
+      // Process response
+      // ... rest of your code
+    } catch (error) {
+      console.error("Error in handleSendMessage:", error);
+      // Show error to user
+      setIsTyping(false);
+      // Update chat with error message
+      const errorMessage = {
+        id: Date.now(),
+        role: "assistant",
+        content: "Xin lỗi, đã có lỗi xảy ra: " + error.message,
+        timestamp: new Date()
+      };
+      const finalChat = {
+        ...updatedChat,
+        messages: [...newMessages, errorMessage],
+        lastMessage: errorMessage.content,
+        updatedAt: new Date().toISOString(),
+      };
+      onChatUpdate(finalChat);
+    }
+  };
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString("vi-VN", {
