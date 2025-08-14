@@ -5,6 +5,24 @@ import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
 export default function BotSelector({ bots, selectedBot, onSelectBot }) {
+  // Thêm bot Tư vấn ESH thủ công
+  const customBot = {
+    id: "esh-bot",
+    _id: "esh-bot", 
+    name: "Tư vấn ESH",
+    description: "Bot tư vấn ESH cho học sinh/phụ huynh dựa trên dữ liệu thực",
+    icon: "mdi:robot",
+    color: "bg-blue-500",
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/models/gemma-3n-e2b-it:generateContent",
+    model: "gemma-3n-e2b-it",
+    // Xóa apiKey từ frontend
+    referer: "http://localhost:3000",
+    title: "Multi ChatBot AI",
+  };
+
+  // Đảm bảo bot này luôn xuất hiện đầu tiên
+  const allBots = [customBot, ...bots];
+
   return (
     <div className="px-0 pt-4 pb-2 border-b border-gray-200">
       <div className="flex items-center justify-between mb-4">
@@ -12,7 +30,7 @@ export default function BotSelector({ bots, selectedBot, onSelectBot }) {
       </div>
 
       <div className="space-y-2 max-h-80 overflow-y-auto w-full custom-scrollbar">
-        {bots.map((bot) => (
+        {allBots.map((bot) => (
           <Card
             key={bot._id}
             className={cn(
