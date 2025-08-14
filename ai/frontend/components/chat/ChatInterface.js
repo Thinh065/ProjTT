@@ -81,7 +81,11 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
     // Gọi API thật tới backend
     try {
-      const res = await fetch("http://localhost:5000/api/chatbot/dynamic", {
+      const endpoint = bot._id === "esh-bot"
+        ? "http://localhost:5000/api/chatbot/gemini"
+        : "http://localhost:5000/api/chatbot/dynamic";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -110,72 +114,140 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
           data?.message ||
           data?.error?.message ||
           "Không nhận được phản hồi từ AI."
+
+        const aiMessage = {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: aiContent,
+          timestamp: new Date(),
+          sourceChunks: data?.sourceChunks || [],
+        }
+
+        const finalMessages = [...newMessages, aiMessage]
+        setIsTyping(false)
+
+        // Update chat with AI response
+        const finalChat = {
+          ...updatedChat,
+          bot: { ...bot },
+          messages: finalMessages,
+          lastMessage: aiMessage.content,
+          updatedAt: new Date().toISOString(),
+        }
+        onChatUpdate(finalChat)
+
+        const user = JSON.parse(localStorage.getItem("user") || "{}");
+        const userId = user._id || user.id;
+        const botKey = bot._id || bot.id || "default";
+        const historyKey = `chatHistory_${userId}_${botKey}`;
+        let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+        const chatData = {
+          id: updatedChat.id,
+          bot: { ...bot },
+          title: updatedChat.title,
+          messages: finalMessages,
+          createdAt: updatedChat.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messageCount: finalMessages.length,
+          preview: finalMessages[0]?.content || "",
+        };
+        chatHistory = chatHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
+        localStorage.setItem(historyKey, JSON.stringify(chatHistory));
+
+        // Đồng bộ vào "Tất cả" của user
+        const allHistoryKey = `chatHistory_${userId}_all`;
+        let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
+        allHistory = allHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
+        localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
       }
-
-      const aiMessage = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content: aiContent,
-        timestamp: new Date(),
-      }
-
-      const finalMessages = [...newMessages, aiMessage]
-      setIsTyping(false)
-
-      // Update chat with AI response
-      const finalChat = {
-        ...updatedChat,
-        bot: { ...bot }, // clone bot hiện tại
-        messages: finalMessages,
-        lastMessage: aiMessage.content,
-        updatedAt: new Date().toISOString(),
-      }
-      onChatUpdate(finalChat)
-
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const userId = user._id || user.id;
-      const botKey = bot._id || bot.id || "default";
-      const historyKey = `chatHistory_${userId}_${botKey}`;
-      let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-      const chatData = {
-        id: updatedChat.id,
-        bot: { ...bot },
-        title: updatedChat.title,
-        messages: finalMessages,
-        createdAt: updatedChat.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        messageCount: finalMessages.length,
-        preview: finalMessages[0]?.content || "",
-      };
-      chatHistory = chatHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
-      localStorage.setItem(historyKey, JSON.stringify(chatHistory));
-
-      // Đồng bộ vào "Tất cả" của user
-      const allHistoryKey = `chatHistory_${userId}_all`;
-      let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
-      allHistory = allHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
-      localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
     } catch (error) {
+      console.error("API call error:", error);
       if (error.name === "AbortError") {
         // Bị abort thì không làm gì cả
-        return
       }
-      const aiMessage = {
-        id: Date.now() + 1,
-        role: "assistant",
-        content: "Đã xảy ra lỗi khi gọi AI: " + error.message,
+      // Có thể thêm xử lý lỗi khác ở đây
+    }
+    setIsTyping(false);
+  }
+
+  const handleSendMessage = async (input) => {
+    try {
+      // Validate bot configuration first
+      if (!bot.model || !bot.apiKey || !bot.baseURL) {
+        throw new Error("Bot configuration is incomplete");
+      }
+
+      const newMessages = [...messages, {
+        id: Date.now(),
+        role: "user",
+        content: input,
         timestamp: new Date(),
+      }];
+
+      // Update UI immediately with user message
+      const updatedChat = {
+        id: chat?.id || Date.now(),
+        bot: { ...bot },
+        messages: newMessages,
+        title: chat?.title || input.trim().substring(0, 50) + "...",
+        lastMessage: input.trim(),
+        updatedAt: new Date().toISOString(),
+      };
+      onChatUpdate(updatedChat);
+
+      // Prepare API request
+      const endpoint = bot._id === "esh-bot"
+        ? "http://localhost:5000/api/chatbot/gemini"
+        : "http://localhost:5000/api/chatbot/dynamic";
+
+      const payload = {
+        model: bot.model,
+        messages: newMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        apiKey: bot.apiKey,
+        baseURL: bot.baseURL,
+      };
+
+      // Log request for debugging
+      console.log("Sending request to:", endpoint);
+      console.log("Request payload:", payload);
+
+      const res = await fetch(endpoint, {
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      // Handle response
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to get AI response");
       }
-      setIsTyping(false)
+
+      // Process response
+      // ... rest of your code
+    } catch (error) {
+      console.error("Error in handleSendMessage:", error);
+      // Show error to user
+      setIsTyping(false);
+      // Update chat with error message
+      const errorMessage = {
+        id: Date.now(),
+        role: "assistant",
+        content: "Xin lỗi, đã có lỗi xảy ra: " + error.message,
+        timestamp: new Date()
+      };
       const finalChat = {
         ...updatedChat,
-        messages: [...newMessages, aiMessage],
-        lastMessage: aiMessage.content,
+        messages: [...newMessages, errorMessage],
+        lastMessage: errorMessage.content,
         updatedAt: new Date().toISOString(),
-      }
-      onChatUpdate(finalChat)
+      };
+      onChatUpdate(finalChat);
     }
-  }
+  };
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString("vi-VN", {
@@ -267,6 +339,17 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                     >
                       {msg.content}
                     </ReactMarkdown>
+                    {/* Hiển thị sourceChunks nếu có */}
+                    {msg.sourceChunks && msg.sourceChunks.length > 0 && (
+                      <details className="mt-2">
+                        <summary className="cursor-pointer text-blue-600 text-xs">Nguồn thông tin</summary>
+                        <ul className="list-disc ml-4 text-xs text-gray-500">
+                          {msg.sourceChunks.map((chunk, idx) => (
+                            <li key={idx}>{chunk}</li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </div>
                 ) : (
                   <div className="whitespace-pre-line break-words">
@@ -274,7 +357,6 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                   </div>
                 )}
               </div>
-
               {msg.role === "user" && (
                 <Avatar className="w-8 h-8 flex-shrink-0">
                   <AvatarImage src="/placeholder.svg?height=32&width=32" />
