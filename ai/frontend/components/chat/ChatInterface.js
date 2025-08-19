@@ -12,6 +12,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useRouter } from "next/navigation"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const messages = chat?.messages || [];
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false)
@@ -82,8 +83,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     // Gọi API thật tới backend
     try {
       const endpoint = bot._id === "esh-bot"
-        ? "http://localhost:5000/api/chatbot/gemini"
-        : "http://localhost:5000/api/chatbot/dynamic";
+        ? `${API_BACKEND}/api/chatbot/gemini`
+        : `${API_BACKEND}/api/chatbot/dynamic`;
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -197,8 +198,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
       // Prepare API request
       const endpoint = bot._id === "esh-bot"
-        ? "http://localhost:5000/api/chatbot/gemini"
-        : "http://localhost:5000/api/chatbot/dynamic";
+        ? `${API_BACKEND}/api/chatbot/gemini`
+        : `${API_BACKEND}/api/chatbot/dynamic`;
 
       const payload = {
         model: bot.model,

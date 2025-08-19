@@ -47,7 +47,7 @@ export default function HistoryPage() {
   }, [selectedBot])
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/apikeys")
+    fetch(`${API_BACKEND}/api/apikeys`)
       .then((res) => res.json())
       .then(setBots);
   }, []);

@@ -8,6 +8,7 @@ import ChatHistory from "@/components/chat/ChatHistory"
 import ChatInterface from "@/components/chat/ChatInterface"
 
 export default function DashboardPage() {
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [bots, setBots] = useState([])
   const [selectedBot, setSelectedBot] = useState(null)
   const [currentChat, setCurrentChat] = useState(null)
@@ -40,7 +41,7 @@ export default function DashboardPage() {
   // Lấy danh sách ChatBot từ backend
   useEffect(() => {
     setLoading(true)
-    fetch("http://localhost:5000/api/apikeys")
+    fetch(`${API_BACKEND}/api/apikeys`)
       .then((res) => res.json())
       .then((data) => {
         const visibleBots = data.filter(b => !b.hidden)

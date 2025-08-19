@@ -11,6 +11,7 @@ import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function RegisterPage() {
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState("")
   const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ export default function RegisterPage() {
       setAvatarPreview(URL.createObjectURL(file))
       const form = new FormData()
       form.append("image", file)
-      const res = await fetch("http://localhost:5000/api/upload/avatar", {
+      const res = await fetch(`${API_BACKEND}/api/upload/avatar`, {
         method: "POST",
         body: form,
       })
@@ -58,7 +59,7 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const res = await fetch("http://localhost:5000/api/auth/register", {
+      const res = await fetch(`${API_BACKEND}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
