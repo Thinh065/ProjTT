@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
-console.log("Submitting API_BACKEND :", API_BACKEND)
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)

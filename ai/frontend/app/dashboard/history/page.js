@@ -11,6 +11,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useRouter } from "next/navigation"
 
 export default function HistoryPage() {
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [chatHistory, setChatHistory] = useState([])
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedBot, setSelectedBot] = useState("all")

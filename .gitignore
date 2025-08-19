@@ -1,0 +1,11 @@
+# Ignore all node_modules everywhere
+# **/node_modules/
+
+# Ignore environment files
+**/.env
+
+# Ignore build artifacts
+**/dist/
+**/build/
+
+**/package-lock.json
