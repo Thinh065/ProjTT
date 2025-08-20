@@ -11,15 +11,7 @@ const allowedOrigins = process.env.CORS_ORIGIN
   : [];
 
 const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: (origin, callback) => callback(null, true), // Accept all origins dynamically
   credentials: true,
 };
 

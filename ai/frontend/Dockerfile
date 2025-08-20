@@ -15,4 +15,4 @@ RUN adduser -S reactuser -u 1001
 RUN chown -R reactuser:nodejs /app
 USER reactuser
 
-CMD ["yarn", "start"]
+CMD ["yarn", "dev"]
