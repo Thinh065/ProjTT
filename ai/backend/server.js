@@ -5,32 +5,17 @@ const cors = require("cors");
 
 const app = express();
 
-// Enhanced CORS configuration
+// CORS configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",")
+  : [];
+
 const corsOptions = {
-  origin: [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://localhost:3000",
-    "https://127.0.0.1:3000",
-  ],
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-  ],
+  origin: (origin, callback) => callback(null, true), // Accept all origins dynamically
   credentials: true,
-  optionsSuccessStatus: 200,
-  preflightContinue: false,
 };
 
-// Apply CORS BEFORE any other middleware
 app.use(cors(corsOptions));
-
-// Explicitly handle preflight requests
-app.options("*", cors(corsOptions));
 
 // Add request logging for debugging
 app.use((req, res, next) => {
@@ -47,7 +32,7 @@ mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    dbName: "test",
+    dbName: process.env.MONGO_DB_NAME,
   })
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
@@ -110,8 +95,6 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`CORS enabled for origins: ${corsOptions.origin.join(", ")}`);
-
   // Initialize knowledge extraction after server starts
   initializeKnowledge();
 });

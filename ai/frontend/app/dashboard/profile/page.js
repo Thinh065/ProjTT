@@ -9,6 +9,7 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useRouter } from "next/navigation"
 
 export default function ProfilePage() {
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [user, setUser] = useState(null) // <-- Thêm dòng này
   const [formData, setFormData] = useState({
     name: "",
@@ -58,7 +59,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem("token")
       const user = JSON.parse(localStorage.getItem("user") || "{}")
       // Gọi API cập nhật tên trên server
-      const res = await fetch(`http://localhost:5000/api/users/${user._id}`, {
+      const res = await fetch(`${API_BACKEND}/api/users/${user._id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -99,7 +100,7 @@ export default function ProfilePage() {
     try {
       const token = localStorage.getItem("token")
       const user = JSON.parse(localStorage.getItem("user") || "{}")
-      const res = await fetch(`http://localhost:5000/api/users/${user._id}/change-password`, {
+      const res = await fetch(`${API_BACKEND}/api/users/${user._id}/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -141,7 +142,7 @@ export default function ProfilePage() {
     const token = localStorage.getItem("token")
     const user = JSON.parse(localStorage.getItem("user") || "{}")
     // SỬA ĐÚNG endpoint:
-    const res = await fetch(`http://localhost:5000/api/users/${user._id}/avatar`, {
+    const res = await fetch(`${API_BACKEND}/api/users/${user._id}/avatar`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
