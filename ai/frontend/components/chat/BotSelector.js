@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
 export default function BotSelector({ bots, selectedBot, onSelectBot }) {
+  const API_FRONTEND = process.env.NEXT_PUBLIC_API_FRONTEND
   // Thêm bot Tư vấn ESH thủ công
   const customBot = {
     id: "esh-bot",
@@ -16,7 +17,7 @@ export default function BotSelector({ bots, selectedBot, onSelectBot }) {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/models/gemma-3n-e2b-it:generateContent",
     model: "gemma-3n-e2b-it",
     // Xóa apiKey từ frontend
-    referer: "http://localhost:3000",
+    referer: API_FRONTEND,
     title: "Multi ChatBot AI",
   };
 

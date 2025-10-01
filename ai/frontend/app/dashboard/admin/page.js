@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function AdminPage() {
+  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [aiKeys, setAiKeys] = useState([])
@@ -59,7 +60,7 @@ export default function AdminPage() {
 
   const fetchUsers = async () => {
     setLoading(true)
-    const res = await fetch("http://localhost:5000/api/auth/users", {
+    const res = await fetch(`${API_BACKEND}/api/auth/users`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
@@ -68,7 +69,7 @@ export default function AdminPage() {
   }
 
   const fetchAiKeys = async () => {
-    const res = await fetch("http://localhost:5000/api/apikeys")
+    const res = await fetch(`${API_BACKEND}/api/apikeys`)
     const data = await res.json()
     setAiKeys(data)
   }
@@ -76,7 +77,7 @@ export default function AdminPage() {
   // Đổi role user
   const handleChangeRole = async (userId, newRole) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
-    const res = await fetch(`http://localhost:5000/api/users/${userId}/role`, {
+    const res = await fetch(`${API_BACKEND}/api/users/${userId}/role`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -102,7 +103,7 @@ export default function AdminPage() {
       return
     }
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
-    const res = await fetch(`http://localhost:5000/api/users/${userId}/status`, {
+    const res = await fetch(`${API_BACKEND}/api/users/${userId}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -134,7 +135,7 @@ export default function AdminPage() {
       message: "Bạn có chắc chắn muốn xóa user này?",
       onConfirm: async () => {
         const token = typeof window !== "undefined" ? localStorage.getItem("token") : ""
-        const res = await fetch(`http://localhost:5000/api/users/${userId}`, {
+        const res = await fetch(`${API_BACKEND}/api/users/${userId}`, {
           method: "DELETE",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -159,7 +160,7 @@ export default function AdminPage() {
     showConfirm({
       message: "Bạn có chắc chắn muốn thêm ChatBot này?",
       onConfirm: async () => {
-        const res = await fetch("http://localhost:5000/api/apikeys", {
+        const res = await fetch(`${API_BACKEND}/api/apikeys`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(aiForm)
@@ -187,7 +188,7 @@ export default function AdminPage() {
     if (file) {
       const formData = new FormData()
       formData.append("image", file)
-      const res = await fetch("http://localhost:5000/api/upload/avatar", {
+      const res = await fetch(`${API_BACKEND}/api/upload/avatar`, {
         method: "POST",
         body: formData,
       })
@@ -201,7 +202,7 @@ export default function AdminPage() {
   }
 
   const handleDeleteBot = async (botId) => {
-    await fetch(`http://localhost:5000/api/apikeys/${botId}`, { method: "DELETE" });
+    await fetch(`${API_BACKEND}/api/apikeys/${botId}`, { method: "DELETE" });
     // Xóa lịch sử liên quan
     const historyKey = "chatHistory";
     let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
@@ -218,7 +219,7 @@ export default function AdminPage() {
 
   // Ẩn/hiện ChatBot
   const handleHideAiKey = async (botId, hidden) => {
-    await fetch(`http://localhost:5000/api/apikeys/${botId}/hide`, {
+    await fetch(`${API_BACKEND}/api/apikeys/${botId}/hide`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ hidden }),
