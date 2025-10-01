@@ -42,7 +42,7 @@ app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Routes - FIXED: Remove duplicate route mounting
+// Routes
 try {
   // Auth routes (public)
   app.use("/api/auth", require("./routes/auth"));
@@ -82,12 +82,13 @@ app.use((req, res) => {
 // Initialize knowledge extraction (with error handling)
 const initializeKnowledge = async () => {
   try {
-    const { extractAndSaveDocs } = require("./models/KnowledgeChunk");
-    await extractAndSaveDocs();
+    // Import đúng tên hàm từ KnowledgeChunk
+    const { extractAndSaveMdFiles } = require("./models/KnowledgeChunk");
+    await extractAndSaveMdFiles();
     console.log("Knowledge extraction completed");
   } catch (error) {
     console.error("Knowledge extraction error:", error);
-    // Don't exit, just log the error
+    // Không dừng server, chỉ log
   }
 };
 

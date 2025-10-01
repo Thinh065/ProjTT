@@ -1,50 +1,37 @@
 const fs = require("fs");
-const mammoth = require("mammoth");
 const path = require("path");
 const dotenv = require("dotenv");
 const { CloudClient } = require("chromadb");
 const fetch = require("node-fetch");
 const { HfInference } = require("@huggingface/inference");
 
-// Đường dẫn thư mục chứa file .docx
-const DOCS_DIR = process.env.DOCS_DIR || "./knowledgeBase/docx";
-
-// Thêm đường dẫn thư mục chunks
-const CHUNKS_DIR = process.env.CHUNKS_DIR || "./knowledgeBase/chunks";
-
-// 🔹 Đảm bảo thư mục tồn tại, nếu chưa có thì tạo mới
-[DOCS_DIR, CHUNKS_DIR].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`📂 Đã tạo thư mục mới: ${dir}`);
-  }
-});
+// Đường dẫn thư mục chứa file .md
+const DOCS_DIR = "C:/Code/ProjCT/knowledgeBase/chunks";
 
 // Tải biến môi trường từ .env
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-// Sửa cách khởi tạo client
 const inference = new HfInference(process.env.HF_TOKEN);
 
 // Khởi tạo ChromaDB client và collection
 const chromaClient = new CloudClient({
   apiKey: process.env.CHROMA_API_KEY,
   tenant: process.env.CHROMA_TENANT,
-  database: process.env.CHROMA_DATABASE,
+  database: process.env.CHROMA_DATABASE
 });
 
 let collection;
 async function initChroma() {
   collection = await chromaClient.getOrCreateCollection({
     name: "knowledge_chunks",
-    metadata: { description: "ESH knowledge base chunks" },
+    metadata: { description: "ESH knowledge base chunks" }
   });
 }
 
-// Thêm hàm delay helper
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// Delay helper
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Hàm retry với backoff
+// Retry with backoff
 async function retryWithBackoff(fn, maxRetries = 3) {
   let retries = 0;
   while (retries < maxRetries) {
@@ -53,8 +40,6 @@ async function retryWithBackoff(fn, maxRetries = 3) {
     } catch (error) {
       retries++;
       if (retries === maxRetries) throw error;
-
-      // Tăng thời gian chờ theo cấp số nhân
       const waitTime = Math.min(1000 * Math.pow(2, retries), 10000);
       console.log(`Retry ${retries}/${maxRetries} after ${waitTime}ms...`);
       await delay(waitTime);
@@ -62,94 +47,56 @@ async function retryWithBackoff(fn, maxRetries = 3) {
   }
 }
 
-// Helper function to temporarily suppress logs
-const suppressLogsTemporarily = async (fn) => {
-  const oldLog = console.log;
-  console.log = () => {};
-  try {
-    return await fn();
-  } finally {
-    console.log = oldLog;
-  }
-};
-
-// Hàm gọi Hugging Face API để lấy embedding
+// 📌 Lấy embedding từ Hugging Face
 async function getEmbedding(text) {
-  if (!text || typeof text !== "string") {
-    throw new Error("Input text is required and must be a string");
-  }
-
   const cleanText = text.trim().replace(/\s+/g, " ").slice(0, 2000);
-
-  try {
-    const output = await retryWithBackoff(async () => {
-      // Không tắt log toàn cục nữa – chỉ log lỗi nếu có
-      const result = await inference.featureExtraction({
-        model: "sentence-transformers/all-MiniLM-L6-v2",
-        inputs: cleanText,
-        options: {
-          wait_for_model: true,
-          use_cache: true,
-        },
-      });
-
-      if (!result || !Array.isArray(result)) {
-        throw new Error("Invalid embedding format received");
-      }
-
-      return result;
-    });
-
-    return output;
-  } catch (err) {
-    console.error("❌ Embedding error details:", {
-      message: err.message,
-      textLength: text?.length,
-      textPreview: text?.slice(0, 100),
-    });
-    throw err;
-  }
+  const result = await retryWithBackoff(() =>
+    inference.featureExtraction({
+      model: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+      inputs: cleanText,
+      options: { wait_for_model: true, use_cache: true }
+    })
+  );
+  return result;
 }
 
-// Hàm chuẩn hóa tên file (loại bỏ .docx)
-function normalizeFileName(file) {
-  return file.replace(/\.docx$/i, "");
-}
-
-// Hàm chia nhỏ văn bản theo câu và số lượng từ
-function chunkTextBySentence(text, minWords = 100, maxWords = 150) {
-  // Tách thành câu dựa trên dấu chấm, hỏi, cảm thán
-  const sentences = text
-    .replace(/\r\n/g, " ")
-    .replace(/\n/g, " ")
+// 📌 Chuẩn hóa và chunk Markdown
+function chunkMarkdown(text) {
+  // Xóa cite và ký hiệu không cần thiết
+  let clean = text
+    .replace(/\[cite_start\]|\[cite:.*?\]/g, "")
+    .replace(/---/g, "")
     .replace(/\s+/g, " ")
-    .replace(/\t/g, " ")
-    .trim()
-    .split(/(?<=[.!?])\s+/);
+    .trim();
+
+  // Cắt theo heading ## hoặc ###
+  const sections = clean.split(/\n(?=## )/);
 
   const chunks = [];
-  let currentChunk = [];
-  let wordCount = 0;
+  for (const section of sections) {
+    if (!section.trim()) continue;
 
-  for (const sentence of sentences) {
-    const words = sentence.split(" ");
-    currentChunk.push(sentence);
-    wordCount += words.length;
+    // Giữ heading trong chunk
+    const headingMatch = section.match(/^##.*$/m);
+    const heading = headingMatch ? headingMatch[0] + "\n" : "";
 
-    if (wordCount >= minWords) {
-      chunks.push(currentChunk.join(" ").trim());
-      currentChunk = [];
-      wordCount = 0;
+    // Cắt thành subchunks 1200 ký tự
+    const subChunks = section.match(/[\s\S]{1,1200}/g);
+    if (subChunks) {
+      for (const sub of subChunks) {
+        chunks.push((heading + sub).trim());
+      }
     }
-  }
-  // Thêm phần còn lại nếu có
-  if (currentChunk.length > 0) {
-    chunks.push(currentChunk.join(" ").trim());
   }
   return chunks;
 }
 
-// Hàm kiểm tra file đã chunk chưa bằng ID
+// Chuẩn hoá tên file (loại bỏ .md)
+function normalizeFileName(file) {
+  return file.replace(/\.md$/i, "");
+}
+
+// Kiểm tra file đã chunk chưa
 async function isFileChunked(file) {
   await initChroma();
   const fileId = normalizeFileName(file);
@@ -158,35 +105,19 @@ async function isFileChunked(file) {
   try {
     const result = await collection.get({ ids: [expectedChunkId] });
     return result.ids.includes(expectedChunkId);
-  } catch (err) {
+  } catch {
     return false;
   }
 }
 
-// Hàm đọc chunks từ file JSON
-async function loadChunksFromJson(jsonPath) {
-  try {
-    const data = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
-    return {
-      filename: data.filename,
-      chunks: data.chunks,
-    };
-  } catch (err) {
-    console.error(`Error reading chunks from ${jsonPath}:`, err);
-    return null;
-  }
-}
-
-// Hàm lưu chunk vào ChromaDB
-async function extractAndSaveDocs() {
+// 👉 Hàm xử lý file Markdown
+async function extractAndSaveMdFiles() {
   try {
     await initChroma();
 
     const files = fs
       .readdirSync(DOCS_DIR)
-      .filter((file) => file.endsWith(".docx") && !file.startsWith("~$"));
-
-    let processedCount = 0;
+      .filter(file => file.endsWith(".md"));
 
     for (const file of files) {
       const fileId = normalizeFileName(file);
@@ -194,190 +125,92 @@ async function extractAndSaveDocs() {
         console.log(`⏩ [ĐÃ XỬ LÝ] File ${file} đã được chunk, bỏ qua.`);
         continue;
       }
-      try {
-        console.log(`\n📝 Processing file: ${file}`);
-        const filePath = path.join(DOCS_DIR, file);
 
-        const result = await mammoth.extractRawText({ path: filePath });
-        if (!result.value) {
-          throw new Error("Could not read file content");
-        }
+      console.log(`\n📝 Processing file: ${file}`);
+      const filePath = path.join(DOCS_DIR, file);
+      const content = fs.readFileSync(filePath, "utf8");
 
-        const chunks = chunkTextBySentence(result.value, 100, 150);
-        console.log(`🔄 Created ${chunks.length} chunks from file ${file}`);
+      // Dùng chunkMarkdown thay cho chunkTextBySentence
+      const chunks = chunkMarkdown(content);
+      console.log(`🔄 Created ${chunks.length} chunks from file ${file}`);
 
-        for (let i = 0; i < chunks.length; i += 10) {
-          const batchChunks = chunks.slice(i, i + 10);
-          const ids = batchChunks.map(
-            (_, index) => `${fileId}-chunk-${i + index}`
-          );
+      for (let i = 0; i < chunks.length; i += 10) {
+        const batchChunks = chunks.slice(i, i + 10);
+        const ids = batchChunks.map((_, index) => `${fileId}-chunk-${i + index}`);
 
-          // Thêm log để debug chunk nào bị treo
-          console.log(`🔎 Đang lấy embedding cho các chunk:`, ids);
-
-          const embeddings = await Promise.all(
-            batchChunks.map(async (chunk, idx) => {
-              try {
-                return await getEmbedding(chunk);
-              } catch (err) {
-                console.error(`❌ Lỗi embedding chunk ${ids[idx]}:`, err);
-                throw err;
-              }
-            })
-          );
-
-          await collection.add({
-            ids: ids,
-            embeddings: embeddings,
-            metadatas: batchChunks.map((chunk) => ({
-              file: fileId,
-              chunkSize: chunk.split(" ").length,
-            })),
-            documents: batchChunks,
-          });
-
-          console.log(`✅ Saved chunks ${i + 1} to ${i + batchChunks.length}`);
-          await delay(1000);
-        }
-        processedCount++;
-        console.log(`\n🎯 Đã hoàn tất xử lý file: ${file}`);
-        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      } catch (fileError) {
-        console.error(`❌ Error processing file ${file}:`, fileError);
-        continue;
-      }
-    }
-
-    console.log(`🎉 Đã hoàn tất chunkin ${processedCount} file!`);
-  } catch (err) {
-    console.error("❌ Critical error:", err);
-  }
-
-  try {
-    // Thêm xử lý chunks từ Python
-    const jsonFiles = fs
-      .readdirSync(CHUNKS_DIR)
-      .filter((file) => file.endsWith("_chunks.json"));
-
-    for (const jsonFile of jsonFiles) {
-      const fileId = jsonFile.replace(/_chunks\.json$/i, "");
-
-      if (await isFileChunked(fileId)) {
-        console.log(`⏩ [ĐÃ XỬ LÝ] File ${fileId} đã được chunk, bỏ qua.`);
-        continue;
-      }
-
-      try {
-        console.log(`\n📝 Processing chunks from: ${jsonFile}`);
-        const chunksData = await loadChunksFromJson(
-          path.join(CHUNKS_DIR, jsonFile)
+        const embeddings = await Promise.all(
+          batchChunks.map(chunk => getEmbedding(chunk))
         );
 
-        if (!chunksData) continue;
+        await collection.add({
+          ids,
+          embeddings,
+          metadatas: batchChunks.map(chunk => ({
+            file: fileId,
+            chunkSize: chunk.split(" ").length
+          })),
+          documents: batchChunks
+        });
 
-        const { chunks } = chunksData;
-        console.log(`🔄 Loaded ${chunks.length} chunks from ${jsonFile}`);
-
-        // Xử lý từng batch chunks
-        for (let i = 0; i < chunks.length; i += 10) {
-          const batchChunks = chunks.slice(i, i + 10);
-          const ids = batchChunks.map(
-            (_, index) => `${fileId}-chunk-${i + index}`
-          );
-
-          console.log(
-            `\n🔎 Batch ${Math.floor(i / 10) + 1}/${Math.ceil(
-              chunks.length / 10
-            )}:`
-          );
-          console.log(`⌛ Đang lấy embedding cho các chunk:`, ids);
-
-          const embeddings = await Promise.all(
-            batchChunks.map(async (chunk, idx) => {
-              try {
-                return await getEmbedding(chunk);
-              } catch (err) {
-                console.error(`❌ Lỗi embedding chunk ${ids[idx]}:`, err);
-                throw err;
-              }
-            })
-          );
-
-          await collection.add({
-            ids: ids,
-            embeddings: embeddings,
-            metadatas: batchChunks.map((chunk) => ({
-              file: fileId,
-              chunkSize: chunk.split(" ").length,
-            })),
-            documents: batchChunks,
-          });
-
-          console.log(
-            `✅ Đã lưu batch ${Math.floor(i / 10) + 1}: chunks ${i + 1} đến ${
-              i + batchChunks.length
-            }`
-          );
-          await delay(1000);
-        }
-
-        console.log(`\n🎯 Đã hoàn tất xử lý file: ${fileId}`);
-        console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-      } catch (error) {
-        console.error(`❌ Error processing ${jsonFile}:`, error);
-        continue;
+        console.log(`✅ Saved chunks ${i + 1} to ${i + batchChunks.length}`);
+        await delay(1000);
       }
+
+      console.log(`🎯 Đã hoàn tất xử lý file: ${file}`);
+      console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     }
   } catch (err) {
     console.error("❌ Critical error:", err);
   }
 }
 
-// Hàm tìm kiếm chunk từ ChromaDB
+// 📌 Fallback keyword search
+function keywordSearch(query, documents, limit = 3) {
+  const queryWords = query.toLowerCase().split(/\s+/);
+  const scores = documents.map((doc) => {
+    let score = 0;
+    for (const word of queryWords) {
+      if (doc.toLowerCase().includes(word)) score++;
+    }
+    return { doc, score };
+  });
+
+  return scores
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(s => s.doc);
+}
+
+// 📌 Search với fallback
 async function searchSimilarChunks(query, limit = 3) {
   try {
     const queryEmbedding = await getEmbedding(query);
-
     const results = await collection.query({
       queryEmbeddings: [queryEmbedding],
-      nResults: limit,
+      nResults: limit
     });
 
-    // Log kết quả truy vấn
-    console.log("🔍 Query:", query);
-    console.log("📥 Returned:", results.documents[0]?.length || 0, "chunks");
-    console.log("📏 Distances:", results.distances?.[0]);
-
-    // Nếu không có chunk phù hợp, trả về fallback
-    if (!results.documents[0] || results.documents[0].length === 0) {
-      return [
-        "Tôi xin lỗi, tôi không có thông tin về vấn đề này trong tài liệu tuyển sinh.",
-      ];
+    let docs = results.documents?.flat() || [];
+    if (docs.length === 0) {
+      console.log("⚠️ No embedding match, fallback to keyword search...");
+      const allDocs = await collection.get({});
+      docs = keywordSearch(query, allDocs.documents.flat(), limit);
     }
-
-    return results.documents[0]; // Trả về các chunk phù hợp
+    return docs;
   } catch (err) {
-    console.error("Search error:", err);
-    return [
-      "Tôi xin lỗi, tôi không có thông tin về vấn đề này trong tài liệu tuyển sinh.",
-    ];
+    console.error("❌ Embedding search error, using fallback:", err);
+    const allDocs = await collection.get({});
+    return keywordSearch(query, allDocs.documents.flat(), limit);
   }
 }
 
-// Log ra để kiểm tra biến môi trường đã load chưa
-console.log("HF_TOKEN:", process.env.HF_TOKEN?.slice(0, 10) + "...");
-
-// Chạy script
+// Run script
 async function main() {
-  await extractAndSaveDocs();
+  await extractAndSaveMdFiles();
 }
 
 if (require.main === module) {
   main();
 }
 
-// Export các hàm cần thiết
-module.exports = {
-  extractAndSaveDocs,
-  searchSimilarChunks,
-};
+module.exports = { extractAndSaveMdFiles, searchSimilarChunks };
