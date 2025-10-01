@@ -186,6 +186,23 @@ export default function HistoryPage() {
     }
   }
 
+  // Hàm cập nhật số token cho hội thoại
+  const updateChatTokens = (chatId, totalTokens) => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userId = user._id || user.id;
+    const historyKey = selectedBot === "all"
+      ? `chatHistory_${userId}_all`
+      : `chatHistory_${userId}_${selectedBot}`;
+    let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
+    chatHistory = chatHistory.map(chat =>
+      chat.id === chatId
+        ? { ...chat, totalTokens: (chat.totalTokens || 0) + totalTokens }
+        : chat
+    );
+    localStorage.setItem(historyKey, JSON.stringify(chatHistory));
+    setChatHistory(chatHistory);
+  }
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
@@ -326,9 +343,20 @@ export default function HistoryPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <CardDescription className="text-sm mb-3 line-clamp-2">{chat.preview}</CardDescription>
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <span>{chat.messageCount} tin nhắn</span>
-                  <span>{formatDate(chat.updatedAt)}</span>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>{chat.messageCount} tin nhắn</span>
+                    <span>{formatDate(chat.updatedAt)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                      <Icon icon="mdi:token" className="w-3 h-3 inline mr-1" />
+                      {chat.totalTokens || 0} tokens
+                    </span>
+                    <span className="text-gray-400">
+                      (~{((chat.totalTokens || 0) * 0.001).toFixed(3)}K)
+                    </span>
+                  </div>
                 </div>
                 <div className="mt-3">
                   <Button
@@ -353,3 +381,4 @@ export default function HistoryPage() {
     </div>
   )
 }
+
