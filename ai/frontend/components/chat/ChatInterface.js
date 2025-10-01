@@ -127,6 +127,9 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
         const finalMessages = [...newMessages, aiMessage]
         setIsTyping(false)
 
+        // Lấy số token từ response
+        const totalTokens = data?.usage?.total_tokens || 0;
+
         // Update chat with AI response
         const finalChat = {
           ...updatedChat,
@@ -134,6 +137,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
           messages: finalMessages,
           lastMessage: aiMessage.content,
           updatedAt: new Date().toISOString(),
+          totalTokens, // Thêm dòng này
         }
         onChatUpdate(finalChat)
 
@@ -151,6 +155,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
           updatedAt: new Date().toISOString(),
           messageCount: finalMessages.length,
           preview: finalMessages[0]?.content || "",
+          totalTokens, // Thêm dòng này
         };
         chatHistory = chatHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
         localStorage.setItem(historyKey, JSON.stringify(chatHistory));
