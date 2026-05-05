@@ -2,29 +2,13 @@
 import { useRouter } from "next/navigation"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
-import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 
 export default function ChatHistory({ selectedBot, currentChat, onSelectChat, redirectToDashboard, chats = [], onDeleteChat }) {
   const router = useRouter()
-  const [chatHistory, setChatHistory] = useState([])
   const [ConfirmDialog, showCustomConfirm] = useConfirmDialog()
-
-  useEffect(() => {
-    const historyKey = "chatHistory";
-    const allHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    if (selectedBot) {
-      setChatHistory(allHistory.filter(
-        (chat) =>
-          (chat.bot?._id && chat.bot._id === selectedBot._id) ||
-          (chat.bot?.id && chat.bot.id === selectedBot.id)
-      ));
-    } else {
-      setChatHistory([]);
-    }
-  }, [selectedBot]);
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
@@ -60,6 +44,19 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
     }
   }
 
+  const saveChatToServer = async (messages) => {
+    const token = localStorage.getItem("token"); // vẫn giữ token trong localStorage nếu bạn muốn auth
+    await fetch("http://localhost:5000/api/chat/history/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      },
+      body: JSON.stringify({ messages }),
+      credentials: "include"
+    });
+  };
+
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="p-4">
@@ -77,7 +74,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
           <div className="space-y-2">
             {(Array.isArray(chats) ? chats : []).map((chat, idx) => (
               <div
-                key={chat.id || chat._id || idx} // Luôn đảm bảo key duy nhất
+                key={chat.id || chat._id || idx}
                 className={cn(
                   "p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors group",
                   currentChat?.id === chat.id ? "bg-blue-50 border-blue-200" : "border-gray-200",
@@ -111,4 +108,3 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
     </div>
   )
 }
-

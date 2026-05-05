@@ -12,7 +12,6 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useRouter } from "next/navigation"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
-  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const messages = chat?.messages || [];
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false)
@@ -26,21 +25,6 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
-
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}")
-    if (user.status === "blocked") {
-      showConfirm({
-        message: "Tài khoản đã tạm thời bị chặn!",
-        onlyClose: true,
-        onConfirm: () => {
-          localStorage.removeItem("token")
-          localStorage.removeItem("user")
-          window.location.href = "/auth/login"
-        }
-      })
-    }
-  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -71,7 +55,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     // Update chat
     const updatedChat = {
       ...chat,
-      id: chat?.id || Date.now(), // Đảm bảo luôn có id
+      id: chat?.id || Date.now(),
       bot: { ...bot },
       messages: newMessages,
       title: chat?.title || input.trim().substring(0, 50) + "...",
@@ -80,11 +64,10 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     }
     onChatUpdate(updatedChat)
 
-    // Gọi API thật tới backend
     try {
       const endpoint = bot._id === "esh-bot"
-        ? `${API_BACKEND}/api/chatbot/gemini`
-        : `${API_BACKEND}/api/chatbot/dynamic`;
+        ? "http://localhost:5000/api/chatbot/gemini"
+        : "http://localhost:5000/api/chatbot/dynamic";
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -104,6 +87,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       })
 
       let aiContent = ""
+      let totalTokens = chat?.totalTokens || 0;
+
       if (res.status === 429) {
         aiContent = "Bạn gửi quá nhiều yêu cầu, vui lòng thử lại sau."
       } else {
@@ -116,6 +101,10 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
           data?.error?.message ||
           "Không nhận được phản hồi từ AI."
 
+        if (data.tokens && typeof data.tokens.total === "number") {
+          totalTokens += data.tokens.total;
+        }
+
         const aiMessage = {
           id: Date.now() + 1,
           role: "assistant",
@@ -127,132 +116,37 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
         const finalMessages = [...newMessages, aiMessage]
         setIsTyping(false)
 
-        // Lấy số token từ response
-        const totalTokens = data?.usage?.total_tokens || 0;
-
-        // Update chat with AI response
         const finalChat = {
           ...updatedChat,
           bot: { ...bot },
           messages: finalMessages,
           lastMessage: aiMessage.content,
           updatedAt: new Date().toISOString(),
-          totalTokens, // Thêm dòng này
+          totalTokens,
         }
         onChatUpdate(finalChat)
-
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        const userId = user._id || user.id;
-        const botKey = bot._id || bot.id || "default";
-        const historyKey = `chatHistory_${userId}_${botKey}`;
-        let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-        const chatData = {
-          id: updatedChat.id,
-          bot: { ...bot },
-          title: updatedChat.title,
-          messages: finalMessages,
-          createdAt: updatedChat.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          messageCount: finalMessages.length,
-          preview: finalMessages[0]?.content || "",
-          totalTokens, // Thêm dòng này
-        };
-        chatHistory = chatHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
-        localStorage.setItem(historyKey, JSON.stringify(chatHistory));
-
-        // Đồng bộ vào "Tất cả" của user
-        const allHistoryKey = `chatHistory_${userId}_all`;
-        let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
-        allHistory = allHistory.filter((c) => c.id !== updatedChat.id).concat(chatData);
-        localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
       }
     } catch (error) {
       console.error("API call error:", error);
-      if (error.name === "AbortError") {
-        // Bị abort thì không làm gì cả
-      }
-      // Có thể thêm xử lý lỗi khác ở đây
     }
     setIsTyping(false);
   }
 
-  const handleSendMessage = async (input) => {
-    try {
-      // Validate bot configuration first
-      if (!bot.model || !bot.apiKey || !bot.baseURL) {
-        throw new Error("Bot configuration is incomplete");
-      }
-
-      const newMessages = [...messages, {
-        id: Date.now(),
-        role: "user",
-        content: input,
-        timestamp: new Date(),
-      }];
-
-      // Update UI immediately with user message
-      const updatedChat = {
-        id: chat?.id || Date.now(),
-        bot: { ...bot },
-        messages: newMessages,
-        title: chat?.title || input.trim().substring(0, 50) + "...",
-        lastMessage: input.trim(),
-        updatedAt: new Date().toISOString(),
-      };
-      onChatUpdate(updatedChat);
-
-      // Prepare API request
-      const endpoint = bot._id === "esh-bot"
-        ? `${API_BACKEND}/api/chatbot/gemini`
-        : `${API_BACKEND}/api/chatbot/dynamic`;
-
-      const payload = {
-        model: bot.model,
-        messages: newMessages.map((m) => ({
-          role: m.role,
-          content: m.content,
-        })),
-        apiKey: bot.apiKey,
-        baseURL: bot.baseURL,
-      };
-
-      // Log request for debugging
-      console.log("Sending request to:", endpoint);
-      console.log("Request payload:", payload);
-
-      const res = await fetch(endpoint, {
-        method: "POST", 
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      // Handle response
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to get AI response");
-      }
-
-      // Process response
-      // ... rest of your code
-    } catch (error) {
-      console.error("Error in handleSendMessage:", error);
-      // Show error to user
-      setIsTyping(false);
-      // Update chat with error message
-      const errorMessage = {
-        id: Date.now(),
-        role: "assistant",
-        content: "Xin lỗi, đã có lỗi xảy ra: " + error.message,
-        timestamp: new Date()
-      };
-      const finalChat = {
-        ...updatedChat,
-        messages: [...newMessages, errorMessage],
-        lastMessage: errorMessage.content,
-        updatedAt: new Date().toISOString(),
-      };
-      onChatUpdate(finalChat);
+  const callGithubModel = async (model, prompt) => {
+    const res = await fetch("/api/github-model/inference", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        model,
+        inputs: prompt 
+      })
+    });
+    
+    if (!res.ok) {
+      throw new Error('Failed to call GitHub model');
     }
+    
+    return await res.json();
   };
 
   const formatTime = (timestamp) => {
@@ -262,7 +156,6 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     })
   }
 
-  // Auto resize khi nhập
   const handleInputChange = (e) => {
     setInput(e.target.value);
     const textarea = textareaRef.current;
@@ -272,7 +165,6 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     }
   };
 
-  // Reset chiều cao khi input rỗng (sau khi gửi)
   useEffect(() => {
     if (input === "" && textareaRef.current) {
       textareaRef.current.style.height = "40px";
@@ -345,7 +237,6 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                     >
                       {msg.content}
                     </ReactMarkdown>
-                    {/* Hiển thị sourceChunks nếu có */}
                     {msg.sourceChunks && msg.sourceChunks.length > 0 && (
                       <details className="mt-2">
                         <summary className="cursor-pointer text-blue-600 text-xs">Nguồn thông tin</summary>

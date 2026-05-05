@@ -52,6 +52,8 @@ try {
   app.use("/api/apikeys", require("./routes/apikey"));
   app.use("/api/upload", require("./routes/upload"));
   app.use("/api/chatbot", require("./routes/chatbot"));
+  app.use("/api/chat/history", require("./routes/history"));
+
 
   console.log("All routes loaded successfully");
 } catch (error) {
