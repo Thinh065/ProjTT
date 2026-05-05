@@ -5,7 +5,15 @@ const ChatLogSchema = new mongoose.Schema({
   sourceChunks: { type: [String], default: [] },
   answer: { type: String, default: "" },
   error: { type: String, default: "" },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  messages: [
+    {
+      role: String,
+      content: String,
+      tokens: { type: Number, default: 0 } // Thêm trường tokens cho mỗi message
+    }
+  ],
+  totalTokens: { type: Number, default: 0 } // Thêm trường tổng tokens
 });
 
 module.exports = mongoose.model("ChatLog", ChatLogSchema);

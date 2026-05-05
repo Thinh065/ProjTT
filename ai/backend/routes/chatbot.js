@@ -8,6 +8,7 @@ const { AzureKeyCredential } = require("@azure/core-auth");
 const KnowledgeChunk = require("../models/KnowledgeChunk"); // Add this import
 const { searchSimilarChunks } = require("../models/KnowledgeChunk");
 const ChatLog = require("../models/ChatLog"); // Tạo model này nếu chưa có
+const axios = require('axios');
 
 const openai = new OpenAI({
   baseURL: "https://openrouter.ai/api/v1",
@@ -240,6 +241,107 @@ router.post("/gemini", async (req, res) => {
       error: err.message || "Internal server error",
       sourceChunks: []
     });
+  }
+});
+
+router.post('/dynamic', async (req, res) => {
+  try {
+    const { message, chatId } = req.body;
+    // Giả lập response từ AI
+    const aiResponse = "Đây là phản hồi từ AI"; // Thay bằng response thực tế
+
+    // Tính token (ước lượng)
+    const inputTokens = Math.ceil((message || '').length / 4);
+    const outputTokens = Math.ceil((aiResponse || '').length / 4);
+    const totalTokens = inputTokens + outputTokens;
+
+    // Lưu vào ChatLog (nếu có chatId)
+    if (chatId) {
+      await ChatLog.findByIdAndUpdate(chatId, {
+        $inc: { totalTokens: totalTokens },
+        $push: {
+          messages: [
+            { role: 'user', content: message, tokens: inputTokens },
+            { role: 'assistant', content: aiResponse, tokens: outputTokens }
+          ]
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      response: aiResponse,
+      tokens: {
+        input: inputTokens,
+        output: outputTokens,
+        total: totalTokens
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/dynamic', async (req, res) => {
+  try {
+    const { message, chatId } = req.body;
+    // ... gọi model AI ...
+    // Giả sử response từ model là biến: aiResponse
+    // Và usage là: response.usage
+
+    const aiResponse = response.choices[0].message.content;
+    const usage = response.usage || {};
+    const inputTokens = usage.prompt_tokens || 0;
+    const outputTokens = usage.completion_tokens || 0;
+    const totalTokens = usage.total_tokens || (inputTokens + outputTokens);
+
+    // Lưu vào DB
+    if (chatId) {
+      await ChatLog.findByIdAndUpdate(chatId, {
+        $inc: { totalTokens: totalTokens },
+        $push: {
+          messages: [
+            { role: 'user', content: message, tokens: inputTokens },
+            { role: 'assistant', content: aiResponse, tokens: outputTokens }
+          ]
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      response: aiResponse,
+      tokens: {
+        input: inputTokens,
+        output: outputTokens,
+        total: totalTokens
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/dynamic', async (req, res) => {
+  try {
+    // ...gọi model AI...
+    const usage = response.usage || {};
+    const totalTokens = usage.total_tokens || 0;
+
+    // Cập nhật vào Chroma
+    await axios.patch(`http://localhost:8000/api/collections/chatHistory/documents/${chatId}`, {
+      $inc: { totalTokens: totalTokens }
+    });
+
+    res.json({
+      success: true,
+      response: aiResponse,
+      tokens: {
+        total: totalTokens
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 

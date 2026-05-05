@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,7 @@ import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useRouter } from "next/navigation"
+import ChatHistory from "@/components/chat/ChatHistory"
 
 export default function HistoryPage() {
   const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
@@ -20,43 +21,44 @@ export default function HistoryPage() {
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
   const [editingChatId, setEditingChatId] = useState(null)
   const [editingTitle, setEditingTitle] = useState("")
+  const [chats, setChats] = useState([])
+  const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}")
-    if (user.status === "blocked") {
-      showConfirm({
-        message: "Tài khoản đã tạm thời bị chặn!",
-        onlyClose: true,
-        onConfirm: () => {
-          localStorage.removeItem("token")
-          localStorage.removeItem("user")
-          router.push("/auth/login")
-        }
-      })
-    }
-  }, [])
-
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user._id || user.id;
-    const historyKey = selectedBot === "all"
-      ? `chatHistory_${userId}_all`
-      : `chatHistory_${userId}_${selectedBot}`;
-    const history = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    setChatHistory(history);
-  }, [selectedBot])
-
+  // Load danh sách bots
   useEffect(() => {
     fetch(`${API_BACKEND}/api/apikeys`)
       .then((res) => res.json())
-      .then(setBots);
-  }, []);
+      .then(setBots)
+  }, [])
 
+  // Load lịch sử từ backend
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const token = localStorage.getItem("token") // hoặc lấy từ cookie
+        const res = await fetch(`${API_BACKEND}/api/chat/history`, {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setChatHistory(data)
+        } else {
+          setChatHistory([])
+        }
+      } catch {
+        setChatHistory([])
+      }
+    }
+    fetchHistory()
+  }, [selectedBot])
+
+  // Filter dữ liệu
   useEffect(() => {
     let filtered = chatHistory
 
-    // Lọc theo bot đã chọn
     if (selectedBot !== "all") {
       filtered = filtered.filter(
         (chat) =>
@@ -65,7 +67,6 @@ export default function HistoryPage() {
       )
     }
 
-    // Lọc theo từ khóa tìm kiếm
     if (searchTerm) {
       filtered = filtered.filter(
         (chat) =>
@@ -74,7 +75,6 @@ export default function HistoryPage() {
       )
     }
 
-    // Lọc chỉ các bot còn tồn tại và KHÔNG bị ẩn
     filtered = filtered.filter(
       (chat) =>
         chat.bot &&
@@ -102,44 +102,16 @@ export default function HistoryPage() {
   const handleDeleteChat = (chatId) => {
     showConfirm({
       message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
-      onConfirm: () => {
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-        const userId = user._id || user.id;
-
-        if (selectedBot === "all") {
-          // Xóa ở tất cả các bot của user này
-          bots.forEach((bot) => {
-            const botKey = bot._id || bot.id || bot.name;
-            const historyKey = `chatHistory_${userId}_${botKey}`;
-            let botHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-            botHistory = botHistory.filter((chat) => chat.id !== chatId);
-            localStorage.setItem(historyKey, JSON.stringify(botHistory));
-          });
-          // Xóa ở "all"
-          const allHistoryKey = `chatHistory_${userId}_all`;
-          let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
-          allHistory = allHistory.filter((chat) => chat.id !== chatId);
-          setChatHistory(allHistory);
-          localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
-        } else {
-          const historyKey = `chatHistory_${userId}_${selectedBot}`;
-          let botHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-          botHistory = botHistory.filter((chat) => chat.id !== chatId);
-          setChatHistory(botHistory);
-          localStorage.setItem(historyKey, JSON.stringify(botHistory));
-
-          // Đồng bộ lại "all"
-          const allHistoryKey = `chatHistory_${userId}_all`;
-          let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
-          allHistory = allHistory.filter((chat) => chat.id !== chatId);
-          localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
-        }
+      onConfirm: async () => {
+        await fetch(`${API_BACKEND}/api/chat/history/${chatId}`, {
+          method: "DELETE",
+        })
+        setChatHistory(prev => prev.filter(chat => chat.id !== chatId))
       }
     })
   }
 
   const handleExportChat = (chat) => {
-    // Mock export functionality
     const exportData = {
       title: chat.title,
       bot: chat.bot.name,
@@ -157,51 +129,80 @@ export default function HistoryPage() {
     link.click()
   }
 
-  // Hàm bắt đầu chỉnh sửa
   const handleEditChat = (chat) => {
     setEditingChatId(chat.id)
     setEditingTitle(chat.title)
   }
 
-  // Hàm lưu tên mới
-  const handleSaveEdit = (chat) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user._id || user.id;
-    // Cập nhật trong localStorage
-    const historyKey = selectedBot === "all"
-      ? `chatHistory_${userId}_all`
-      : `chatHistory_${userId}_${selectedBot}`;
-    let history = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    history = history.map(c => c.id === chat.id ? { ...c, title: editingTitle } : c);
-    localStorage.setItem(historyKey, JSON.stringify(history));
-    setChatHistory(history);
-    setEditingChatId(null);
-    setEditingTitle("");
-    // Nếu sửa ở 1 bot, đồng bộ lại "all"
-    if (selectedBot !== "all") {
-      const allHistoryKey = `chatHistory_${userId}_all`;
-      let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]");
-      allHistory = allHistory.map(c => c.id === chat.id ? { ...c, title: editingTitle } : c);
-      localStorage.setItem(allHistoryKey, JSON.stringify(allHistory));
+  const handleSaveEdit = async (chat) => {
+    const res = await fetch(`${API_BACKEND}/api/chat/history/${chat.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title: editingTitle })
+    })
+    if (res.ok) {
+      setChatHistory(prev =>
+        prev.map(c => c.id === chat.id ? { ...c, title: editingTitle } : c)
+      )
     }
+    setEditingChatId(null)
+    setEditingTitle("")
   }
 
-  // Hàm cập nhật số token cho hội thoại
-  const updateChatTokens = (chatId, totalTokens) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user._id || user.id;
-    const historyKey = selectedBot === "all"
-      ? `chatHistory_${userId}_all`
-      : `chatHistory_${userId}_${selectedBot}`;
-    let chatHistory = JSON.parse(localStorage.getItem(historyKey) || "[]");
-    chatHistory = chatHistory.map(chat =>
-      chat.id === chatId
-        ? { ...chat, totalTokens: (chat.totalTokens || 0) + totalTokens }
-        : chat
-    );
-    localStorage.setItem(historyKey, JSON.stringify(chatHistory));
-    setChatHistory(chatHistory);
-  }
+  const handleSaveChat = async (chat) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (!token) {
+        console.error('Không tìm thấy token xác thực');
+        router.push('/auth/login');
+        return;
+      }
+
+      const response = await fetch(`${API_BACKEND}/api/chat/history/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`  // Đảm bảo gửi token
+        },
+        body: JSON.stringify(chat)
+      });
+
+      if (response.status === 401) {
+        // Token hết hạn hoặc không hợp lệ
+        localStorage.removeItem('token');
+        router.push('/auth/login');
+        return;
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('Lưu chat thành công');
+      }
+    } catch (error) {
+      console.error('Lỗi khi lưu chat:', error);
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    // Sửa URL từ /api/chat/history/chroma thành /api/chat/history
+    fetch(`${API_BACKEND}/api/chat/history`, {
+      headers: { 
+        "Authorization": `Bearer ${token}` 
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setChats(data.chats || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div>Đang tải lịch sử...</div>;
 
   return (
     <div className="container mx-auto p-6">
@@ -234,7 +235,7 @@ export default function HistoryPage() {
           Tất cả
         </Button>
         {bots
-          .filter(bot => !bot.hidden) // <-- chỉ hiện bot không bị ẩn
+          .filter(bot => !bot.hidden)
           .map((bot) => (
             <Button
               key={bot._id}
@@ -268,7 +269,7 @@ export default function HistoryPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredHistory.map((chat, idx) => (
-            <Card key={chat.id || chat._id || idx} className="hover:shadow-lg transition-shadow">
+            <Card key={chat.id || idx} className="hover:shadow-lg transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-2 flex-1 min-w-0">
@@ -363,9 +364,8 @@ export default function HistoryPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      // Truyền cả botId và chatId lên URL
-                      const botId = chat.bot?._id || chat.bot?.id;
-                      window.location.href = `/dashboard?botId=${botId}&chatId=${chat.id}`;
+                      const botId = chat.bot?._id || chat.bot?.id
+                      window.location.href = `/dashboard?botId=${botId}&chatId=${chat.id}`
                     }}
                   >
                     <Icon icon="mdi:eye-outline" className="w-4 h-4 mr-1" />
@@ -381,4 +381,3 @@ export default function HistoryPage() {
     </div>
   )
 }
-
