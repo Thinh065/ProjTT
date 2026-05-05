@@ -134,35 +134,43 @@ export default function DashboardPage() {
   }
 
   // Khi cập nhật chat (gửi tin nhắn mới)
-  const handleChatUpdate = (updatedChat) => {
+  const handleChatUpdate = async (updatedChat) => {
     setCurrentChat(updatedChat)
+    // Gửi lên backend thay vì lưu localStorage
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const userId = user._id || user.id;
     const botKey = selectedBot._id || selectedBot.id || selectedBot.name
     const historyKey = `chatHistory_${userId}_${botKey}`
-    const newHistory = [updatedChat, ...chatHistory.filter(c => c.id !== updatedChat.id)]
-    setChatHistory(newHistory)
-    localStorage.setItem(historyKey, JSON.stringify(newHistory))
+
+    await fetch(`${process.env.NEXT_PUBLIC_API_BACKEND}/api/chat/history/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ historyKey, chat: updatedChat }),
+    });
+
+    // Không lưu localStorage nữa, chỉ cập nhật state
+    setChatHistory([updatedChat, ...chatHistory.filter(c => c.id !== updatedChat.id)])
   }
 
-  const handleDeleteChat = (chatId) => {
+  const handleDeleteChat = async (chatId) => {
     showConfirm({
       message: "Bạn có chắc muốn xóa cuộc trò chuyện này?",
-      onConfirm: () => {
-        const newHistory = chatHistory.filter((chat) => chat.id !== chatId)
-        setChatHistory(newHistory)
-        // Xóa trong localStorage
+      onConfirm: async () => {
+        // Gửi request xóa lên backend
         const user = JSON.parse(localStorage.getItem("user") || "{}");
         const userId = user._id || user.id;
         const botKey = selectedBot._id || selectedBot.id || selectedBot.name
         const historyKey = `chatHistory_${userId}_${botKey}`
-        localStorage.setItem(historyKey, JSON.stringify(newHistory))
-        // Xóa ở "all"
-        const allHistoryKey = `chatHistory_${userId}_all`
-        let allHistory = JSON.parse(localStorage.getItem(allHistoryKey) || "[]")
-        allHistory = allHistory.filter((chat) => chat.id !== chatId)
-        localStorage.setItem(allHistoryKey, JSON.stringify(allHistory))
-        // Nếu chat hiện tại bị xóa thì bỏ chọn
+
+        await fetch(`${process.env.NEXT_PUBLIC_API_BACKEND}/api/chat/history/delete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ historyKey, chatId }),
+        });
+
+        // Cập nhật lại state
+        const newHistory = chatHistory.filter((chat) => chat.id !== chatId)
+        setChatHistory(newHistory)
         if (currentChat && currentChat.id === chatId) {
           setCurrentChat(newHistory[0] || null)
         }
@@ -217,6 +225,48 @@ export default function DashboardPage() {
     setChatHistory(history);
     setCurrentChat(history[0] || null);
   }, [selectedBot, typeof window !== "undefined" && localStorage.getItem("user")]);
+
+  const handleSaveChat = async (chat) => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Using token:', token); // Debug log
+
+      if (!token) {
+        console.error('No token available');
+        router.push('/auth/login');
+        return;
+      }
+
+      const response = await fetch(`${API_BACKEND}/api/chat/history/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(chat)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Save failed:', error);
+      throw error;
+    }
+  };
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    console.log('Current token:', token); // Debug log
+    
+    if (!token) {
+      console.log('No token - redirecting to login');
+      router.push('/auth/login');
+    }
+  }, []);
 
   if (loading) {
     return (

@@ -1,29 +1,25 @@
 "use client"
-import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import ChatHistory from "@/components/chat/ChatHistory";
 
-export default function ChatDetailPage() {
-  const { id } = useParams();
-  const [chat, setChat] = useState(null);
+export default function ChatPage({ params }) {
+  const [chats, setChats] = useState([]);
+  const botId = params.id;
 
   useEffect(() => {
-    const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
-    const found = history.find((c) => String(c.id) === String(id));
-    setChat(found);
-  }, [id]);
-
-  if (!chat) return <div>Không tìm thấy cuộc trò chuyện</div>;
+    const token = localStorage.getItem("token");
+    fetch(`http://localhost:5000/api/chat/history?botId=${botId}`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+      .then(res => res.json())
+      .then(data => setChats(data.chats || []));
+  }, [botId]);
 
   return (
-    <div>
-      <h2>{chat.title}</h2>
-      <div>
-        {chat.messages.map((msg, idx) => (
-          <div key={idx} style={{ margin: "8px 0" }}>
-            <b>{msg.role === "user" ? "Bạn" : "Bot"}:</b> {msg.content}
-          </div>
-        ))}
-      </div>
-    </div>
+    <ChatHistory
+      selectedBot={{ id: botId }}
+      chats={chats}
+      // ...other props
+    />
   );
 }

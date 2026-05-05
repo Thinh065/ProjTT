@@ -1,17 +1,27 @@
-const jwt = require("jsonwebtoken")
-const User = require("../models/User")
+const jwt = require('jsonwebtoken');
 
-module.exports = async (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1]
-  if (!token) return res.status(401).json({ message: "Không có token" })
+const auth = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    // Lấy user từ database để lấy đúng role hiện tại
-    const user = await User.findById(decoded.id)
-    if (!user) return res.status(401).json({ message: "Không tìm thấy user" })
-    req.user = user
-    next()
-  } catch {
-    res.status(401).json({ message: "Token không hợp lệ" })
+    // Log để debug
+    console.log("Headers:", req.headers);
+    
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      console.log("No token found");
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    console.log("Decoded user:", decoded);
+    
+    next();
+  } catch (err) {
+    console.error("Auth error:", err);
+    return res.status(401).json({ error: 'Invalid token' });
   }
-}
+};
+
+module.exports = auth;
