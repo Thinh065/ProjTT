@@ -1,348 +1,200 @@
-const express = require("express")
-const router = express.Router()
-const OpenAI = require("openai")
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const express = require("express");
 const ModelClient = require("@azure-rest/ai-inference").default;
 const { isUnexpected } = require("@azure-rest/ai-inference");
 const { AzureKeyCredential } = require("@azure/core-auth");
-const KnowledgeChunk = require("../models/KnowledgeChunk"); // Add this import
-const { searchSimilarChunks } = require("../models/KnowledgeChunk");
-const ChatLog = require("../models/ChatLog"); // Tạo model này nếu chưa có
-const axios = require('axios');
+const ApiKey = require("../models/ApiKey");
+const ChatLog = require("../models/ChatLog");
+const { auth } = require("../middleware/auth");
+const asyncHandler = require("../utils/asyncHandler");
+const { buildEshPrompt, NO_INFO_ANSWER } = require("../utils/prompts");
 
-const openai = new OpenAI({
-  baseURL: "https://openrouter.ai/api/v1",
-  apiKey: process.env.OPENROUTER_API_KEY,
-  defaultHeaders: {
-    "HTTP-Referer": "https://your-site.com",
-    "X-Title": "Your Site Name",
-  },
-})
+const router = express.Router();
 
-// Route cũ dùng OpenAI SDK
-router.post("/openrouter", async (req, res) => {
-  try {
-    const { prompt, model } = req.body
-    const completion = await openai.chat.completions.create({
-      model: model || "deepseek/deepseek-r1-0528:free",
-      messages: [{ role: "user", content: prompt }],
-    })
-    res.json({ message: completion.choices[0].message })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
+const ESH_BOT_ID = "esh-bot";
+const REQUEST_TIMEOUT_MS = 60_000;
+const MAX_MESSAGES = 50;
+const MAX_CONTENT_LENGTH = 20_000;
+
+class UpstreamError extends Error {
+  constructor(message, status = 502) {
+    super(message);
+    this.status = status;
   }
-})
+}
 
-// Route động nhận mọi tham số và gọi API bất kỳ
-router.post("/dynamic", async (req, res) => {
+// Chỉ giữ role/content hợp lệ, cắt bớt cho an toàn
+function sanitizeMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return null;
+  const clean = messages
+    .filter((m) => m && ["user", "assistant", "system"].includes(m.role))
+    .map((m) => ({ role: m.role, content: String(m.content ?? "").slice(0, MAX_CONTENT_LENGTH) }))
+    .slice(-MAX_MESSAGES);
+  if (clean.length === 0 || clean[clean.length - 1].role !== "user") return null;
+  return clean;
+}
+
+const tokensFromOpenAIUsage = (usage = {}) => {
+  const input = usage.prompt_tokens || 0;
+  const output = usage.completion_tokens || 0;
+  return { input, output, total: usage.total_tokens || input + output };
+};
+
+const upstreamErrorMessage = (data, fallback) =>
+  (typeof data?.error === "string" ? data.error : data?.error?.message) || data?.message || fallback;
+
+// GitHub Models (Azure AI Inference)
+async function callGithubModel(bot, messages) {
+  const client = ModelClient(bot.baseURL, new AzureKeyCredential(bot.apiKey));
+  const response = await client.path("/chat/completions").post({
+    body: { messages, model: bot.model },
+    timeout: REQUEST_TIMEOUT_MS,
+  });
+  if (isUnexpected(response)) {
+    throw new UpstreamError(upstreamErrorMessage(response.body, "Lỗi từ GitHub Models"), 502);
+  }
+  return {
+    message: response.body.choices?.[0]?.message?.content || "",
+    tokens: tokensFromOpenAIUsage(response.body.usage),
+  };
+}
+
+// Bất kỳ API tương thích OpenAI (OpenRouter, OpenAI, Gemini OpenAI-compatible, ...)
+async function callOpenAICompatible(bot, messages) {
+  const endpoint = bot.baseURL.endsWith("/chat/completions")
+    ? bot.baseURL
+    : bot.baseURL.replace(/\/$/, "") + "/chat/completions";
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${bot.apiKey}`,
+      ...(bot.referer && { "HTTP-Referer": bot.referer }),
+      ...(bot.title && { "X-Title": bot.title }),
+    },
+    body: JSON.stringify({ model: bot.model, messages }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const status = response.status === 429 ? 429 : 502;
+    throw new UpstreamError(upstreamErrorMessage(data, `Lỗi từ API (${response.status})`), status);
+  }
+  return {
+    message: data.choices?.[0]?.message?.content || "",
+    tokens: tokensFromOpenAIUsage(data.usage),
+  };
+}
+
+// Bot tư vấn ESH: RAG trên ChromaDB + Gemini
+async function callEshBot(messages, userId) {
+  const question = messages[messages.length - 1].content;
+  const conversation = messages
+    .slice(-7, -1)
+    .map((m) => `${m.role === "user" ? "Học sinh" : "Cô Thuỷ"}: ${m.content}`)
+    .join("\n");
+
+  let sourceChunks = [];
   try {
-    const { model, messages, apiKey, baseURL } = req.body;
-    
-    // Validate required fields
-    if (!model || !messages || !apiKey || !baseURL) {
-      return res.status(400).json({ 
-        error: "Missing required fields",
-        details: {
-          model: !model ? "Missing model" : null,
-          messages: !messages ? "Missing messages" : null,
-          apiKey: !apiKey ? "Missing apiKey" : null,
-          baseURL: !baseURL ? "Missing baseURL" : null
-        }
-      });
-    }
+    const { searchSimilarChunks } = require("../models/KnowledgeChunk");
+    const chunks = await searchSimilarChunks(question, 10);
+    sourceChunks = (chunks || []).filter((c) => c && !c.startsWith(NO_INFO_ANSWER.slice(0, 12)));
+  } catch (err) {
+    console.error("RAG search error:", err.message);
+  }
 
-    // Validate messages format
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return res.status(400).json({
-        error: "Invalid messages format",
-        details: "Messages must be a non-empty array"
-      });
-    }
+  if (!process.env.GEMINI_API_KEY) {
+    throw new UpstreamError("Server chưa cấu hình GEMINI_API_KEY", 500);
+  }
 
-    // Tiếp tục xử lý như cũ
-    if (baseURL.includes("models.github.ai")) {
-      // Gọi GitHub Model (Azure AI)
-      const endpoint = baseURL;
-      const client = ModelClient(endpoint, new AzureKeyCredential(apiKey));
-      const response = await client.path("/chat/completions").post({
-        body: {
-          messages,
-          temperature: 1.0,
-          top_p: 1.0,
-          model
-        }
-      });
-      if (isUnexpected(response)) {
-        console.error("Azure AI error:", response.body.error);
-        return res.status(500).json({ error: response.body.error });
-      }
-      console.log("Azure AI response:", response.body);
-      return res.json(response.body);
-    } else {
-      // Gọi OpenRouter như cũ
-      const endpoint = baseURL.endsWith("/chat/completions")
-        ? baseURL
-        : baseURL.replace(/\/$/, "") + "/chat/completions";
-      const response = await fetch(endpoint, {
+  const model = process.env.GEMINI_MODEL || "gemma-3n-e2b-it";
+  const prompt = buildEshPrompt({ context: sourceChunks.join("\n\n"), conversation, question });
+
+  let answer = "";
+  let errorText = "";
+  let tokens = { input: 0, output: 0, total: 0 };
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          ...(req.body.referer && { "HTTP-Referer": req.body.referer }),
-          ...(req.body.title && { "X-Title": req.body.title }),
+          "x-goog-api-key": process.env.GEMINI_API_KEY,
         },
         body: JSON.stringify({
-          model,
-          messages,
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 1.0, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
         }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        console.error("OpenRouter error:", data);
-        return res.status(response.status).json({ error: data.error || data });
-      }
-      console.log("OpenRouter response:", data);
-      return res.json(data);
-    }
-  } catch (err) {
-    console.error("Server error:", err);
-    res.status(500).json({ error: err.message });
-  }
-})
-
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemma-3n-e2b-it:generateContent";
-
-// Update the Gemini route
-router.post("/gemini", async (req, res) => {
-  try {
-    const { messages } = req.body;
-    const lastMessage = messages[messages.length - 1];
-
-    // Search similar chunks from ChromaDB
-    const relevantChunks = await searchSimilarChunks(lastMessage.content, 10);
-
-    // Nếu không có chunk nào, trả về fallback
-    let context = "";
-    let sourceChunks = [];
-    if (!relevantChunks || relevantChunks.length === 0 || (relevantChunks.length === 1 && relevantChunks[0].startsWith("Tôi xin lỗi"))) {
-      context = "";
-      sourceChunks = [];
-    } else {
-      context = relevantChunks.join("\n\n");
-      sourceChunks = relevantChunks;
-    }
-
-    // Create system prompt
-    const systemPrompt = `Bạn là Thanh Thuỷ, một cô giáo hướng dẫn tuyển sinh của trường phổ thông ESH.
-    Hãy trả lời câu hỏi của học sinh dựa trên thông tin được cung cấp dưới đây.
-    Nếu câu hỏi không liên quan đến thông tin tuyển sinh hoặc không thể trả lời dựa trên thông tin này, hãy trả lời
-    "Tôi xin lỗi, tôi không có thông tin về vấn đề này trong tài liệu tuyển sinh."
-
-    CÂU TRẢ LỜI CÓ SẴN:
-   1. **Giới thiệu chung về ESH**:
-   - Trường tư thục đào tạo từ Mầm non đến Lớp 12, định hướng trở thành trường STEM hàng đầu Việt Nam.
-   - Môi trường học tập thân thiện, an toàn, hiện đại với cơ sở vật chất thông minh và đầy đủ (hồ bơi, nhà thi đấu, sân thể thao, khu sinh hoạt...).
-
-  2. **Chương trình học**:
-   - Chương trình MOET + tiếng Anh Oxford.
-   - Chương trình AES (Advanced English Skills).
-   - Chương trình VCE (Victoria – Úc).
-   - Hệ sinh thái học STEAM, SEL, giáo dục thể chất và phát triển năng khiếu.
-   - Dạy học theo hướng toàn diện, tích hợp, chú trọng tính cách, kỹ năng, học thuật.
-
-  3. **Giáo dục bổ trợ & chăm sóc toàn diện**:
-   - Chương trình “Giáo dục tính cách bằng hành động” gồm 10 đức tính nền tảng (trách nhiệm, chính trực, lạc quan...).
-   - Chương trình SEL (trí tuệ cảm xúc - xã hội).
-   - Well-being – hỗ trợ tâm lý, tinh thần, tư vấn cá nhân, phụ huynh.
-   - Các hoạt động ngoại khoá đa dạng: CLB, trại hè, dã ngoại học tập…
-
-  4. **Đội ngũ giáo viên**:
-   - Giáo viên Việt Nam và Quốc tế, nhiều người có chứng chỉ chuyên môn và kinh nghiệm lâu năm tại ESH.
-   - Triết lý giáo dục đa dạng, nhân văn, khơi dậy đam mê, khuyến khích sự sáng tạo và tôn trọng cá tính học sinh.
-
-  5. **Tuyển sinh & học phí**:
-   - Quy trình tuyển sinh 6 bước rõ ràng, từ tư vấn đến kiểm tra đầu vào và nhập học.
-   - Hồ sơ nhập học đầy đủ theo quy định.
-   - Chính sách học phí minh bạch, hỗ trợ tài chính linh hoạt.
-   - Có học bổng Tài năng Einstein – lên tới 100% học phí (dành cho Lớp 2–12).
-   - Dịch vụ xe đưa rước và ăn uống dinh dưỡng, an toàn từ đơn vị chuyên nghiệp (May Catering).
-
-    THÔNG TIN tuyển sinh bổ sung (KHÔNG ĐƯỢC DÙNG KIẾN THỨC NGOÀI):
-    ${context}
-
-    Câu hỏi: ${lastMessage.content}
-
-    Trả lời:`;
-
-    // Gọi Gemini API với prompt đã tạo
-    const response = await fetch(
-      GEMINI_API_URL + "?key=" + process.env.GEMINI_API_KEY,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt }] }],
-          generationConfig: {
-            temperature: 1.0,
-            topK: 40,
-            topP: 0.95,
-            maxOutputTokens: 2048
-          }
-        })
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       }
     );
-
-    let answer = "";
+    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Gemini API error:", errorText);
-      answer = "Lỗi khi gọi Gemini API";
-      // Log vào DB
-      await ChatLog.create({
-        question: lastMessage.content,
-        sourceChunks,
-        answer,
-        error: errorText,
-        createdAt: new Date()
-      });
-      return res.status(response.status).json({
-        error: "Error calling Gemini API",
-        sourceChunks
-      });
+      errorText = upstreamErrorMessage(data, `Gemini API lỗi (${response.status})`);
+      throw new UpstreamError(errorText, response.status === 429 ? 429 : 502);
     }
-
-    const data = await response.json();
-    answer = data.candidates?.[0]?.content?.parts?.[0]?.text || "Không có phản hồi từ Gemini API";
-
-    // Log vào DB
-    await ChatLog.create({
-      question: lastMessage.content,
+    answer = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+    const u = data.usageMetadata || {};
+    tokens = {
+      input: u.promptTokenCount || 0,
+      output: u.candidatesTokenCount || 0,
+      total: u.totalTokenCount || (u.promptTokenCount || 0) + (u.candidatesTokenCount || 0),
+    };
+    return { message: answer || "Không có phản hồi từ Gemini", tokens, sourceChunks };
+  } catch (err) {
+    errorText = errorText || err.message;
+    throw err;
+  } finally {
+    ChatLog.create({
+      user: userId,
+      question,
       sourceChunks,
       answer,
-      createdAt: new Date()
-    });
-
-    res.json({
-      message: answer,
-      sourceChunks
-    });
-
-  } catch (err) {
-    console.error("Server error in /gemini:", err);
-    // Log vào DB
-    await ChatLog.create({
-      question: req.body?.messages?.[req.body.messages.length - 1]?.content || "",
-      sourceChunks: [],
-      answer: "",
-      error: err.message,
-      createdAt: new Date()
-    });
-    res.status(500).json({
-      error: err.message || "Internal server error",
-      sourceChunks: []
-    });
+      error: errorText,
+      totalTokens: tokens.total,
+    }).catch((e) => console.error("ChatLog error:", e.message));
   }
-});
+}
 
-router.post('/dynamic', async (req, res) => {
-  try {
-    const { message, chatId } = req.body;
-    // Giả lập response từ AI
-    const aiResponse = "Đây là phản hồi từ AI"; // Thay bằng response thực tế
-
-    // Tính token (ước lượng)
-    const inputTokens = Math.ceil((message || '').length / 4);
-    const outputTokens = Math.ceil((aiResponse || '').length / 4);
-    const totalTokens = inputTokens + outputTokens;
-
-    // Lưu vào ChatLog (nếu có chatId)
-    if (chatId) {
-      await ChatLog.findByIdAndUpdate(chatId, {
-        $inc: { totalTokens: totalTokens },
-        $push: {
-          messages: [
-            { role: 'user', content: message, tokens: inputTokens },
-            { role: 'assistant', content: aiResponse, tokens: outputTokens }
-          ]
-        }
-      });
+// Gửi tin nhắn tới một ChatBot. Client chỉ gửi botId, server tự lấy apiKey/baseURL/model từ DB.
+router.post(
+  "/dynamic",
+  auth,
+  asyncHandler(async (req, res) => {
+    const { botId } = req.body;
+    const messages = sanitizeMessages(req.body.messages);
+    if (!botId) return res.status(400).json({ message: "Thiếu botId" });
+    if (!messages) {
+      return res.status(400).json({ message: "messages phải là mảng và kết thúc bằng tin nhắn của user" });
     }
 
-    res.json({
-      success: true,
-      response: aiResponse,
-      tokens: {
-        input: inputTokens,
-        output: outputTokens,
-        total: totalTokens
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/dynamic', async (req, res) => {
-  try {
-    const { message, chatId } = req.body;
-    // ... gọi model AI ...
-    // Giả sử response từ model là biến: aiResponse
-    // Và usage là: response.usage
-
-    const aiResponse = response.choices[0].message.content;
-    const usage = response.usage || {};
-    const inputTokens = usage.prompt_tokens || 0;
-    const outputTokens = usage.completion_tokens || 0;
-    const totalTokens = usage.total_tokens || (inputTokens + outputTokens);
-
-    // Lưu vào DB
-    if (chatId) {
-      await ChatLog.findByIdAndUpdate(chatId, {
-        $inc: { totalTokens: totalTokens },
-        $push: {
-          messages: [
-            { role: 'user', content: message, tokens: inputTokens },
-            { role: 'assistant', content: aiResponse, tokens: outputTokens }
-          ]
+    try {
+      let result;
+      if (botId === ESH_BOT_ID) {
+        result = await callEshBot(messages, req.user.id);
+      } else {
+        const bot = await ApiKey.findById(botId).select("+apiKey").lean();
+        if (!bot || (bot.hidden && req.user.role !== "admin")) {
+          return res.status(404).json({ message: "Không tìm thấy ChatBot" });
         }
-      });
+        const isGithub = /models\.github\.ai|models\.inference\.ai\.azure\.com/.test(bot.baseURL);
+        result = isGithub
+          ? await callGithubModel(bot, messages)
+          : await callOpenAICompatible(bot, messages);
+      }
+      res.json(result);
+    } catch (err) {
+      if (err instanceof UpstreamError) {
+        return res.status(err.status).json({ message: err.message });
+      }
+      if (err.name === "TimeoutError" || err.name === "AbortError") {
+        return res.status(504).json({ message: "AI phản hồi quá lâu, vui lòng thử lại" });
+      }
+      throw err;
     }
+  })
+);
 
-    res.json({
-      success: true,
-      response: aiResponse,
-      tokens: {
-        input: inputTokens,
-        output: outputTokens,
-        total: totalTokens
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/dynamic', async (req, res) => {
-  try {
-    // ...gọi model AI...
-    const usage = response.usage || {};
-    const totalTokens = usage.total_tokens || 0;
-
-    // Cập nhật vào Chroma
-    await axios.patch(`http://localhost:8000/api/collections/chatHistory/documents/${chatId}`, {
-      $inc: { totalTokens: totalTokens }
-    });
-
-    res.json({
-      success: true,
-      response: aiResponse,
-      tokens: {
-        total: totalTokens
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-module.exports = router
+module.exports = router;

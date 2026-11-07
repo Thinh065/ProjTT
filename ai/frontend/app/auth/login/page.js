@@ -1,4 +1,5 @@
 "use client"
+import { API_BACKEND } from "@/lib/api"
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -11,7 +12,6 @@ import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function LoginPage() {
-  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -62,34 +62,6 @@ export default function LoginPage() {
       [e.target.name]: e.target.value,
     })
   }
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    
-    try {
-      const response = await fetch(`${API_BACKEND}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          email,
-          password
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.token) {
-        // Lưu token vào localStorage
-        localStorage.setItem('token', data.token);
-        console.log('Token saved:', data.token); // Debug log
-        router.push('/dashboard');
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">

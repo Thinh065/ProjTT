@@ -3,101 +3,85 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
+if (!process.env.JWT_SECRET) {
+  console.error("Thiếu biến môi trường JWT_SECRET");
+  process.exit(1);
+}
+
 const app = express();
 
-// CORS configuration
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(",")
-  : [];
+// CORS: chỉ cho phép các origin trong CORS_ORIGIN (phân tách bằng dấu phẩy)
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-const corsOptions = {
-  origin: (origin, callback) => callback(null, true), // Accept all origins dynamically
-  credentials: true,
-};
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Cho phép request không có Origin (curl, server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+    credentials: true,
+  })
+);
 
-app.use(cors(corsOptions));
+if (process.env.NODE_ENV === "development") {
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+  });
+}
 
-// Add request logging for debugging
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.get("Origin")}`);
-  next();
-});
-
-// Body parsing middleware AFTER CORS
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// MongoDB connection
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    dbName: process.env.MONGO_DB_NAME,
-  })
+  .connect(process.env.MONGO_URI, { dbName: process.env.MONGO_DB_NAME })
   .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .catch((err) => console.error("MongoDB connection error:", err.message));
 
-// Health check endpoint (before other routes)
 app.get("/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });
 });
 
-// Routes
-try {
-  // Auth routes (public)
-  app.use("/api/auth", require("./routes/auth"));
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/users", require("./routes/users"));
+app.use("/api/apikeys", require("./routes/apikey"));
+app.use("/api/upload", require("./routes/upload"));
+app.use("/api/chatbot", require("./routes/chatbot"));
+app.use("/api/chat/history", require("./routes/history"));
 
-  // Protected routes
-  app.use("/api/users", require("./routes/users"));
-  app.use("/api/apikeys", require("./routes/apikey"));
-  app.use("/api/upload", require("./routes/upload"));
-  app.use("/api/chatbot", require("./routes/chatbot"));
-  app.use("/api/chat/history", require("./routes/history"));
-
-
-  console.log("All routes loaded successfully");
-} catch (error) {
-  console.error("Error loading routes:", error);
-  process.exit(1);
-}
-
-// Static files
-app.use("/uploads", express.static("uploads"));
+// 404
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
 
 // Global error handler
+// eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
+  if (err.name === "CastError") {
+    return res.status(400).json({ message: "ID không hợp lệ" });
+  }
+  if (err.name === "MulterError" || err.http_code === 400) {
+    return res.status(400).json({ message: err.message });
+  }
   console.error("Global error:", err);
-  res.status(500).json({
-    error: "Internal Server Error",
+  res.status(err.status || 500).json({
     message:
-      process.env.NODE_ENV === "development"
-        ? err.message
-        : "Something went wrong",
+      process.env.NODE_ENV === "development" ? err.message : "Lỗi server",
   });
 });
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
-});
-
-// Initialize knowledge extraction (with error handling)
-const initializeKnowledge = async () => {
-  try {
-    // Import đúng tên hàm từ KnowledgeChunk
-    const { extractAndSaveMdFiles } = require("./models/KnowledgeChunk");
-    await extractAndSaveMdFiles();
-    console.log("Knowledge extraction completed");
-  } catch (error) {
-    console.error("Knowledge extraction error:", error);
-    // Không dừng server, chỉ log
-  }
-};
 
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  // Initialize knowledge extraction after server starts
-  initializeKnowledge();
+  if (process.env.CHROMA_API_KEY) {
+    const { extractAndSaveMdFiles } = require("./models/KnowledgeChunk");
+    extractAndSaveMdFiles()
+      .then(() => console.log("Knowledge extraction completed"))
+      .catch((err) => console.error("Knowledge extraction error:", err.message));
+  }
 });

@@ -11,11 +11,12 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
   const [ConfirmDialog, showCustomConfirm] = useConfirmDialog()
 
   const formatDate = (dateString) => {
+    if (!dateString) return ""
     const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = Math.abs(now - date)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    const diffDays = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000)
 
+    if (diffDays <= 0) return date.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })
     if (diffDays === 1) return "Hôm qua"
     if (diffDays < 7) return `${diffDays} ngày trước`
     return date.toLocaleDateString("vi-VN")
@@ -33,7 +34,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
 
   const handleSelectChat = (chat) => {
     if (redirectToDashboard) {
-      const botId = chat.bot?.id || chat.bot?._id;
+      const botId = chat.botId;
       if (!botId) {
         alert("Bot không hợp lệ!");
         return;
@@ -43,19 +44,6 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
       onSelectChat(chat);
     }
   }
-
-  const saveChatToServer = async (messages) => {
-    const token = localStorage.getItem("token"); // vẫn giữ token trong localStorage nếu bạn muốn auth
-    await fetch("http://localhost:5000/api/chat/history/save", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      },
-      body: JSON.stringify({ messages }),
-      credentials: "include"
-    });
-  };
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -77,7 +65,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
                 key={chat.id || chat._id || idx}
                 className={cn(
                   "p-3 rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors group",
-                  currentChat?.id === chat.id ? "bg-blue-50 border-blue-200" : "border-gray-200",
+                  currentChat?.id && currentChat.id === chat.id ? "bg-blue-50 border-blue-200" : "border-gray-200",
                 )}
                 onClick={() => handleSelectChat(chat)}
               >
@@ -87,7 +75,7 @@ export default function ChatHistory({ selectedBot, currentChat, onSelectChat, re
                     <p className="text-xs text-gray-500 truncate mt-1">{chat.lastMessage}</p>
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-xs text-gray-400">{formatDate(chat.updatedAt)}</span>
-                      <span className="text-xs text-gray-400">{chat.messageCount} tin nhắn</span>
+                      <span className="text-xs text-gray-400">{chat.messageCount || 0} tin nhắn</span>
                     </div>
                   </div>
                   <Button

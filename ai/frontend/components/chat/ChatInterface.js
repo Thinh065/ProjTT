@@ -1,15 +1,12 @@
 "use client"
 
 import { useRef, useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
-import { useRouter } from "next/navigation"
+import { apiFetch, getStoredUser } from "@/lib/api"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messages = chat?.messages || [];
@@ -19,8 +16,10 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const abortControllerRef = useRef(null)
   const textareaRef = useRef(null);
 
-  const [ConfirmDialog, showConfirm] = useConfirmDialog()
-  const router = useRouter()
+  const [avatar, setAvatar] = useState("")
+  useEffect(() => {
+    setAvatar(getStoredUser().avatar || "")
+  }, [])
 
   useEffect(() => {
     scrollToBottom()
@@ -30,124 +29,100 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || isTyping) return;
+  // Huỷ request đang chạy khi rời trang / đổi chat
+  useEffect(() => () => abortControllerRef.current?.abort(), [])
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-  
+  const handleSend = async (e) => {
+    e.preventDefault()
+    const text = input.trim()
+    if (!text || isTyping) return
+
+    abortControllerRef.current?.abort()
     const controller = new AbortController()
     abortControllerRef.current = controller
 
     const userMessage = {
       id: Date.now(),
       role: "user",
-      content: input.trim(),
-      timestamp: new Date(),
+      content: text,
+      timestamp: new Date().toISOString(),
     }
 
     const newMessages = [...messages, userMessage]
     setInput("")
     setIsTyping(true)
 
-    // Update chat
     const updatedChat = {
       ...chat,
-      id: chat?.id || Date.now(),
-      bot: { ...bot },
+      botId: bot._id,
+      botName: bot.name,
       messages: newMessages,
-      title: chat?.title || input.trim().substring(0, 50) + "...",
-      lastMessage: input.trim(),
+      title:
+        chat?.title && chat.title !== "Cuộc trò chuyện mới"
+          ? chat.title
+          : text.length > 50
+            ? text.substring(0, 50) + "..."
+            : text,
+      lastMessage: text,
       updatedAt: new Date().toISOString(),
     }
-    onChatUpdate(updatedChat)
+    // Hiện tin nhắn của user ngay, chưa lưu
+    onChatUpdate(updatedChat, { persist: false })
 
+    let aiContent = ""
+    let tokens = { input: 0, output: 0, total: 0 }
+    let sourceChunks = []
     try {
-      const endpoint = bot._id === "esh-bot"
-        ? "http://localhost:5000/api/chatbot/gemini"
-        : "http://localhost:5000/api/chatbot/dynamic";
-
-      const res = await fetch(endpoint, {
+      const { ok, status, data } = await apiFetch("/api/chatbot/dynamic", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: bot.model,
-          messages: newMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          apiKey: bot.apiKey,
-          baseURL: bot.baseURL,
-          referer: bot.referer,
-          title: bot.title,
-        }),
+        body: {
+          botId: bot._id,
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+        },
         signal: controller.signal,
       })
 
-      let aiContent = ""
-      let totalTokens = chat?.totalTokens || 0;
-
-      if (res.status === 429) {
-        aiContent = "Bạn gửi quá nhiều yêu cầu, vui lòng thử lại sau."
+      if (ok) {
+        aiContent = data.message || "Không nhận được phản hồi từ AI."
+        tokens = data.tokens || tokens
+        sourceChunks = data.sourceChunks || []
+      } else if (status === 429) {
+        aiContent = "⚠️ Bạn gửi quá nhiều yêu cầu, vui lòng thử lại sau."
       } else {
-        const data = await res.json()
-        console.log("AI response:", data)
-        aiContent =
-          data?.choices?.[0]?.message?.content ||
-          data?.message?.content ||
-          data?.message ||
-          data?.error?.message ||
-          "Không nhận được phản hồi từ AI."
-
-        if (data.tokens && typeof data.tokens.total === "number") {
-          totalTokens += data.tokens.total;
-        }
-
-        const aiMessage = {
-          id: Date.now() + 1,
-          role: "assistant",
-          content: aiContent,
-          timestamp: new Date(),
-          sourceChunks: data?.sourceChunks || [],
-        }
-
-        const finalMessages = [...newMessages, aiMessage]
-        setIsTyping(false)
-
-        const finalChat = {
-          ...updatedChat,
-          bot: { ...bot },
-          messages: finalMessages,
-          lastMessage: aiMessage.content,
-          updatedAt: new Date().toISOString(),
-          totalTokens,
-        }
-        onChatUpdate(finalChat)
+        aiContent = `⚠️ ${data?.message || "Không nhận được phản hồi từ AI."}`
       }
     } catch (error) {
-      console.error("API call error:", error);
+      if (error?.name === "AbortError") {
+        setIsTyping(false)
+        return
+      }
+      aiContent = "⚠️ Có lỗi khi gọi AI, vui lòng thử lại."
     }
-    setIsTyping(false);
-  }
 
-  const callGithubModel = async (model, prompt) => {
-    const res = await fetch("/api/github-model/inference", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        model,
-        inputs: prompt 
-      })
-    });
-    
-    if (!res.ok) {
-      throw new Error('Failed to call GitHub model');
+    // Gắn số token: input cho tin của user, output cho tin của AI
+    const finalUser = { ...userMessage, tokens: tokens.input || 0 }
+    const aiMessage = {
+      id: Date.now() + 1,
+      role: "assistant",
+      content: aiContent,
+      timestamp: new Date().toISOString(),
+      tokens: tokens.output || Math.max(0, (tokens.total || 0) - (tokens.input || 0)),
+      ...(sourceChunks.length ? { sourceChunks } : {}),
     }
-    
-    return await res.json();
-  };
+    const finalMessages = [...messages, finalUser, aiMessage]
+
+    setIsTyping(false)
+    onChatUpdate(
+      {
+        ...updatedChat,
+        messages: finalMessages,
+        lastMessage: aiContent,
+        updatedAt: new Date().toISOString(),
+        totalTokens: finalMessages.reduce((s, m) => s + (m.tokens || 0), 0),
+      },
+      { persist: true }
+    )
+  }
 
   const formatTime = (timestamp) => {
     return new Date(timestamp).toLocaleTimeString("vi-VN", {
@@ -189,20 +164,20 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       <div className="flex-1 overflow-y-auto p-4 space-y-4 min-w-0 w-full">
         {messages.length === 0 ? (
           <div className="text-center py-8">
-            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", bot.color)}>
-              <Icon icon={bot.icon} className="w-8 h-8 text-white" />
+            <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4", bot.color || "bg-gray-700")}>
+              <Icon icon={bot.icon || "mdi:robot"} className="w-8 h-8 text-white" />
             </div>
             <p className="text-gray-500">Gửi tin nhắn để bắt đầu cuộc trò chuyện</p>
           </div>
         ) : (
-          messages.map((msg) => (
+          messages.map((msg, idx) => (
             <div
-              key={msg.id}
+              key={msg.id || `${msg.role}-${idx}`}
               className={cn("flex space-x-3 chat-message min-w-0", msg.role === "user" ? "justify-end" : "justify-start")}
             >
               {msg.role === "assistant" && (
-                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", bot.color)}>
-                  <Icon icon={bot.icon} className="w-4 h-4 text-white" />
+                <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", bot.color || "bg-gray-700")}>
+                  <Icon icon={bot.icon || "mdi:robot"} className="w-4 h-4 text-white" />
                 </div>
               )}
 
@@ -256,7 +231,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
               </div>
               {msg.role === "user" && (
                 <Avatar className="w-8 h-8 flex-shrink-0">
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                  <AvatarImage src={avatar || "/placeholder-user.jpg"} />
                   <AvatarFallback>U</AvatarFallback>
                 </Avatar>
               )}
@@ -266,8 +241,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
         {isTyping && (
           <div className="flex space-x-3 min-w-0">
-            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", bot.color)}>
-              <Icon icon={bot.icon} className="w-4 h-4 text-white" />
+            <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", bot.color || "bg-gray-700")}>
+              <Icon icon={bot.icon || "mdi:robot"} className="w-4 h-4 text-white" />
             </div>
             <div className="bg-gray-100 px-4 py-2 rounded-lg">
               <div className="typing-indicator">
@@ -302,7 +277,8 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
           />
           <button
             type="submit"
-            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition w-16 md:w-auto"
+            disabled={isTyping || !input.trim()}
+            className="disabled:opacity-50 bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition w-16 md:w-auto"
           >
             Gửi
           </button>
