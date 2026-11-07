@@ -32,7 +32,11 @@ export function useConfirmDialog() {
           )}
           <button
             className="px-5 py-2 bg-gray-100 text-gray-800 rounded border border-gray-300 hover:bg-gray-200"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              setOpen(false)
+              // Với hộp thông báo chỉ có nút Đóng, onConfirm chạy khi đóng
+              if (onlyClose && onConfirm) onConfirm()
+            }}
           >
             Đóng
           </button>

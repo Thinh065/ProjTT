@@ -2,152 +2,119 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const ChatHistory = require("../models/ChatHistory");
+const { auth, requireAdmin } = require("../middleware/auth");
+const asyncHandler = require("../utils/asyncHandler");
+
 const router = express.Router();
 
-// Đăng ký
-router.post("/register", async (req, res) => {
-  try {
-    console.log("Register request body:", req.body); // Fixed typo here
-    const { name, email, password, avatar } = req.body;
+const publicUser = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  avatar: user.avatar,
+  status: user.status,
+  createdAt: user.createdAt,
+});
 
-    // Validation
+const isEmail = (s) => typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+
+// Đăng ký
+router.post(
+  "/register",
+  asyncHandler(async (req, res) => {
+    const { name, password, avatar } = req.body;
+    const email = (req.body.email || "").trim().toLowerCase();
+
     if (!name || !email || !password) {
-      return res.status(400).json({
-        message: "Vui lòng điền đầy đủ thông tin",
-      });
+      return res.status(400).json({ message: "Vui lòng điền đầy đủ thông tin" });
+    }
+    if (!isEmail(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+    if (String(password).length < 6) {
+      return res.status(400).json({ message: "Mật khẩu phải có ít nhất 6 ký tự" });
     }
 
-    const existing = await User.findOne({ email });
+    const existing = await User.findOne({ email }).collation({ locale: "en", strength: 2 });
     if (existing) {
       return res.status(400).json({ message: "Tài khoản đã tồn tại" });
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(String(password), 10);
     const user = await User.create({
-      name,
+      name: String(name).trim(),
       email,
       password: hash,
-      avatar: avatar || null,
+      avatar: typeof avatar === "string" ? avatar : "",
       role: "user",
       status: "active",
     });
 
-    res.status(201).json({
-      message: "Đăng ký thành công",
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        status: user.status,
-        createdAt: user.createdAt,
-      },
-    });
-  } catch (error) {
-    console.error("Register error:", error);
-    res.status(500).json({
-      message: "Lỗi server khi đăng ký",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
+    res.status(201).json({ message: "Đăng ký thành công", user: publicUser(user) });
+  })
+);
 
 // Đăng nhập
-router.post("/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
+router.post(
+  "/login",
+  asyncHandler(async (req, res) => {
+    const email = (req.body.email || "").trim().toLowerCase();
+    const { password } = req.body;
 
-    // Validation
     if (!email || !password) {
-      return res.status(400).json({
-        message: "Vui lòng điền email và mật khẩu",
-      });
+      return res.status(400).json({ message: "Vui lòng điền email và mật khẩu" });
     }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "Tài khoản không tồn tại" });
+    const user = await User.findOne({ email }).collation({ locale: "en", strength: 2 });
+    // Cùng một thông báo cho "không tồn tại" và "sai mật khẩu" để không lộ email nào đã đăng ký
+    const match = user ? await bcrypt.compare(String(password), user.password) : false;
+    if (!user || !match) {
+      return res.status(400).json({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
-
-    // Check if user is blocked
     if (user.status === "blocked") {
       return res.status(403).json({ message: "Tài khoản đã bị khóa" });
     }
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(400).json({
-        message: "Tài khoản hoặc mật khẩu không đúng",
-      });
-    }
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    res.json({ token, user: publicUser(user) });
+  })
+);
 
-    res.json({
-      token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        status: user.status,
-        createdAt: user.createdAt,
+// Danh sách user kèm tổng token và số cuộc trò chuyện (chỉ admin)
+router.get(
+  "/users",
+  auth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const users = await User.find().select("-password").sort({ createdAt: -1 }).lean();
+    const stats = await ChatHistory.aggregate([
+      {
+        $group: {
+          _id: "$user",
+          totalTokens: { $sum: "$totalTokens" },
+          chatCount: { $sum: 1 },
+        },
       },
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({
-      message: "Lỗi server khi đăng nhập",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
+    ]);
+    const byUser = new Map(stats.map((s) => [String(s._id), s]));
+    res.json(
+      users.map((u) => ({
+        ...u,
+        totalTokens: byUser.get(String(u._id))?.totalTokens || 0,
+        chatCount: byUser.get(String(u._id))?.chatCount || 0,
+      }))
+    );
+  })
+);
 
-// Lấy danh sách user (chỉ admin)
-router.get("/users", async (req, res) => {
-  try {
-    const users = await User.find().select("-password");
-    res.json(users);
-  } catch (error) {
-    console.error("Get users error:", error);
-    res.status(500).json({
-      message: "Lỗi server khi lấy danh sách user",
-      error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-});
-
-// Verify token endpoint
-router.get("/verify", async (req, res) => {
-  try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
-
-    if (!token) {
-      return res.status(401).json({ message: "Không có token" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ message: "User không tồn tại" });
-    }
-
-    if (user.status === "blocked") {
-      return res.status(403).json({ message: "Tài khoản đã bị khóa" });
-    }
-
-    res.json({ user });
-  } catch (error) {
-    console.error("Verify token error:", error);
-    res.status(401).json({ message: "Token không hợp lệ" });
-  }
+// Kiểm tra token, trả về thông tin user hiện tại
+router.get("/verify", auth, (req, res) => {
+  res.json({ user: publicUser(req.user) });
 });
 
 module.exports = router;

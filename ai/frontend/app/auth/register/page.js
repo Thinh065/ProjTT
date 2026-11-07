@@ -1,6 +1,7 @@
 "use client"
+import { API_BACKEND } from "@/lib/api"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -11,7 +12,6 @@ import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 
 export default function RegisterPage() {
-  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState("")
   const [formData, setFormData] = useState({
@@ -26,6 +26,12 @@ export default function RegisterPage() {
 
   const router = useRouter()
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
+
+  // Điền sẵn email khi đến từ trang giới thiệu (?email=...)
+  useEffect(() => {
+    const email = new URLSearchParams(window.location.search).get("email")
+    if (email) setFormData((prev) => ({ ...prev, email }))
+  }, [])
 
   const handleAvatarChange = async (e) => {
     const file = e.target.files[0]

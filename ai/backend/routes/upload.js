@@ -1,29 +1,19 @@
-const express = require("express")
-const multer = require("multer")
-const uploadCloud = require("../middleware/cloudinary")
-const { CloudinaryStorage } = require("multer-storage-cloudinary")
-const cloudinary = require("../middleware/cloudinary")
-const auth = require("../middleware/auth")
-const router = express.Router()
+const express = require("express");
+const { uploadImage, uploadChatImage } = require("../middleware/cloudinary");
+const { auth } = require("../middleware/auth");
 
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "avatars",
-    allowed_formats: ["jpg", "png", "jpeg", "webp"],
-    transformation: [{ width: 256, height: 256, crop: "limit" }]
-  }
-})
+const router = express.Router();
 
-const upload = multer({ storage })
+// Upload ảnh avatar lúc đăng ký (chưa có tài khoản nên không bắt đăng nhập)
+// hoặc ảnh đại diện cho bot. Giới hạn: chỉ ảnh, tối đa 5MB.
+router.post("/avatar", uploadImage.single("image"), (req, res) => {
+  if (!req.file?.path) return res.status(400).json({ message: "Không có file" });
+  res.json({ url: req.file.path });
+});
 
-router.post("/avatar", upload.single("image"), (req, res) => {
-  res.json({ url: req.file.path })
-})
+router.post("/chat-image", auth, uploadChatImage.single("image"), (req, res) => {
+  if (!req.file?.path) return res.status(400).json({ message: "Không có file" });
+  res.json({ url: req.file.path });
+});
 
-router.post("/chat-image", auth, uploadCloud.single("image"), (req, res) => {
-  if (!req.file?.path) return res.status(400).json({ message: "Không có file" })
-  res.json({ url: req.file.path })
-})
-
-module.exports = router
+module.exports = router;

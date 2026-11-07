@@ -1,122 +1,145 @@
-const express = require("express")
-const router = express.Router()
-const auth = require("../middleware/auth")
-const multer = require("multer")
-const path = require("path")
-const uploadCloud = require("../middleware/cloudinary")
-const bcrypt = require("bcryptjs")
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const User = require("../models/User");
+const ChatHistory = require("../models/ChatHistory");
+const { auth, requireAdmin } = require("../middleware/auth");
+const { uploadUserAvatar } = require("../middleware/cloudinary");
+const asyncHandler = require("../utils/asyncHandler");
 
-// Middleware kiểm tra quyền admin
-const requireAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== "admin") {
-    return res.status(403).json({ message: "Chỉ admin mới được phép" })
-  }
-  next()
-}
+const router = express.Router();
 
-// Nâng quyền user (admin/user)
-router.patch("/users/:id/role", auth, requireAdmin, async (req, res) => {
-  const { role } = req.body
-  if (!["admin", "user"].includes(role)) {
-    return res.status(400).json({ message: "Vai trò không hợp lệ" })
+// Chỉ chính chủ hoặc admin
+const requireSelfOrAdmin = (req, res, next) => {
+  if (req.user.id !== req.params.id && req.user.role !== "admin") {
+    return res.status(403).json({ message: "Không có quyền" });
   }
-  if (req.user._id.toString() === req.params.id) {
-    return res.status(400).json({ message: "Không thể thay đổi quyền của chính bạn" })
+  next();
+};
+
+const notSelf = (action) => (req, res, next) => {
+  if (req.user.id === req.params.id) {
+    return res.status(400).json({ message: `Không thể ${action} của chính bạn` });
   }
-  const user = await require("../models/User").findByIdAndUpdate(
-    req.params.id,
-    { role },
-    { new: true }
-  ).select("-password")
-  res.json(user) // user phải có avatar
-})
+  next();
+};
+
+// Đổi quyền user (admin/user)
+router.patch(
+  "/:id/role",
+  auth,
+  requireAdmin,
+  notSelf("thay đổi quyền"),
+  asyncHandler(async (req, res) => {
+    const { role } = req.body;
+    if (!["admin", "user"].includes(role)) {
+      return res.status(400).json({ message: "Vai trò không hợp lệ" });
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true }).select(
+      "-password"
+    );
+    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
+    res.json(user);
+  })
+);
 
 // Đổi trạng thái user (block/unblock)
-router.patch("/users/:id/status", auth, requireAdmin, async (req, res) => {
-  const { status } = req.body
-  if (!["active", "blocked"].includes(status)) {
-    return res.status(400).json({ message: "Trạng thái không hợp lệ" })
-  }
-  if (req.user._id.toString() === req.params.id) {
-    return res.status(400).json({ message: "Không thể thay đổi trạng thái của chính bạn" })
-  }
-  const user = await require("../models/User").findByIdAndUpdate(
-    req.params.id,
-    { status },
-    { new: true }
-  ).select("-password")
-  res.json(user) // user phải có avatar
-})
+router.patch(
+  "/:id/status",
+  auth,
+  requireAdmin,
+  notSelf("thay đổi trạng thái"),
+  asyncHandler(async (req, res) => {
+    const { status } = req.body;
+    if (!["active", "blocked"].includes(status)) {
+      return res.status(400).json({ message: "Trạng thái không hợp lệ" });
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true }).select(
+      "-password"
+    );
+    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
+    res.json(user);
+  })
+);
 
-// Xóa user
-router.delete("/users/:id", auth, requireAdmin, async (req, res) => {
-  if (req.user._id.toString() === req.params.id) {
-    return res.status(400).json({ message: "Không thể xóa chính bạn" })
-  }
-  await require("../models/User").findByIdAndDelete(req.params.id)
-  res.json({ message: "Đã xóa user" })
-})
+// Xóa user (kèm lịch sử chat của họ)
+router.delete(
+  "/:id",
+  auth,
+  requireAdmin,
+  notSelf("xóa tài khoản"),
+  asyncHandler(async (req, res) => {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
+    await ChatHistory.deleteMany({ user: req.params.id });
+    res.json({ message: "Đã xóa user" });
+  })
+);
 
-// Cấu hình lưu file upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads/avatars/")
-  },
-  filename: (req, file, cb) => {
-    cb(null, req.user._id + path.extname(file.originalname))
-  }
-})
-const upload = multer({ storage })
+// Upload avatar (Cloudinary)
+router.post(
+  "/:id/avatar",
+  auth,
+  requireSelfOrAdmin,
+  uploadUserAvatar.single("avatar"),
+  asyncHandler(async (req, res) => {
+    if (!req.file?.path) return res.status(400).json({ message: "Không có file" });
+    const avatarUrl = req.file.path;
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { avatar: avatarUrl },
+      { new: true }
+    ).select("-password");
+    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
+    res.json({ avatar: avatarUrl, user });
+  })
+);
 
-// API upload avatar cho user (dùng Cloudinary)
-router.post("/users/:id/avatar", auth, uploadCloud.single("avatar"), async (req, res) => {
-  if (req.user._id.toString() !== req.params.id && req.user.role !== "admin") {
-    return res.status(403).json({ message: "Không có quyền" })
-  }
-  // req.file.path là link Cloudinary
-  const avatarUrl = req.file.path
-  const user = await require("../models/User").findByIdAndUpdate(
-    req.params.id,
-    { avatar: avatarUrl },
-    { new: true }
-  ).select("-password")
-  res.json({ avatar: avatarUrl, user })
-})
+// Đổi mật khẩu. Chính chủ phải nhập mật khẩu hiện tại; admin đổi cho người khác thì không cần.
+router.post(
+  "/:id/change-password",
+  auth,
+  requireSelfOrAdmin,
+  asyncHandler(async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const isSelf = req.user.id === req.params.id;
 
-// Đổi mật khẩu user
-router.post("/users/:id/change-password", auth, async (req, res) => {
-  const { currentPassword, newPassword } = req.body
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ message: "Thiếu thông tin mật khẩu" })
-  }
-  const user = await require("../models/User").findById(req.params.id)
-  if (!user) return res.status(404).json({ message: "Không tìm thấy user" })
+    if (!newPassword || (isSelf && !currentPassword)) {
+      return res.status(400).json({ message: "Thiếu thông tin mật khẩu" });
+    }
+    if (String(newPassword).length < 6) {
+      return res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 6 ký tự" });
+    }
 
-  // Chỉ cho phép đổi mật khẩu của chính mình hoặc admin
-  if (req.user._id.toString() !== req.params.id && req.user.role !== "admin") {
-    return res.status(403).json({ message: "Không có quyền đổi mật khẩu" })
-  }
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
 
-  const match = await bcrypt.compare(currentPassword, user.password)
-  if (!match) return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" })
+    if (isSelf) {
+      const match = await bcrypt.compare(String(currentPassword), user.password);
+      if (!match) return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" });
+    }
 
-  user.password = await bcrypt.hash(newPassword, 10)
-  await user.save()
-  res.json({ message: "Đổi mật khẩu thành công" })
-})
+    user.password = await bcrypt.hash(String(newPassword), 10);
+    await user.save();
+    res.json({ message: "Đổi mật khẩu thành công" });
+  })
+);
 
-// Cập nhật thông tin user (chỉ cho phép cập nhật tên)
-router.patch("/:id", auth, async (req, res) => {
-  const { name } = req.body
-  if (!name) {
-    return res.status(400).json({ message: "Thiếu thông tin tên" })
-  }
-  const user = await require("../models/User").findByIdAndUpdate(
-    req.params.id,
-    { name },
-    { new: true }
-  ).select("-password")
-  res.json(user)
-})
+// Cập nhật thông tin user (chỉ cho phép đổi tên)
+router.patch(
+  "/:id",
+  auth,
+  requireSelfOrAdmin,
+  asyncHandler(async (req, res) => {
+    const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
+    if (!name) {
+      return res.status(400).json({ message: "Thiếu thông tin tên" });
+    }
+    const user = await User.findByIdAndUpdate(req.params.id, { name }, { new: true }).select(
+      "-password"
+    );
+    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
+    res.json(user);
+  })
+);
 
-module.exports = router
+module.exports = router;

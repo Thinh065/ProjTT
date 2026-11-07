@@ -11,3 +11,6 @@
 **/package-lock.json
 **/yarn.lock
 **/pnpm-lock.json
+
+# Design inspection output
+.taste-skill/

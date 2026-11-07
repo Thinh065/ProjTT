@@ -1,4 +1,5 @@
 "use client"
+import { API_BACKEND } from "@/lib/api"
 
 import { useState, useEffect } from "react"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -9,7 +10,6 @@ import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { useRouter } from "next/navigation"
 
 export default function ProfilePage() {
-  const API_BACKEND = process.env.NEXT_PUBLIC_API_BACKEND
   const [user, setUser] = useState(null) // <-- Thêm dòng này
   const [formData, setFormData] = useState({
     name: "",
@@ -157,6 +157,9 @@ export default function ProfilePage() {
       setAvatarKey(Date.now()); // ép img render lại
       // Tự động reload lại trang để đồng bộ mọi thứ
       window.location.reload();
+    } else {
+      setAvatarPreview(null)
+      showConfirm({ message: data.message || "Upload ảnh thất bại", onlyClose: true })
     }
   }
 
