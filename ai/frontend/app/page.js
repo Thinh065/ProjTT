@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Bricolage_Grotesque } from "next/font/google"
-import Robot from "@/components/landing/Robot"
+import Aurora from "@/components/landing/Aurora"
+import OwlHead from "@/components/landing/OwlHead"
 import "@/components/landing/landing.css"
 
 const bricolage = Bricolage_Grotesque({
@@ -172,9 +173,12 @@ export default function LandingPage() {
 
   return (
     <div ref={rootRef} className={`lp ${bricolage.className}`}>
-      <Nav loggedIn={loggedIn} />
       <main>
-        <Hero loggedIn={loggedIn} />
+        <div className="lp-top">
+          <Aurora />
+          <Nav loggedIn={loggedIn} />
+          <Hero loggedIn={loggedIn} />
+        </div>
         <Showcase />
         <Features />
         <HowItWorks />
@@ -258,7 +262,7 @@ function Hero({ loggedIn }) {
         </Link>
       </div>
 
-      <Robot size={176} className="lp-stage-robot" label="Robot của ProjTT, mở mắt khi bạn cuộn xuống" />
+      <OwlHead size={300} className="lp-mascot" label="Cú linh vật của ProjTT, mở mắt khi bạn cuộn xuống" />
       <div className="lp-stage">
         <div className="lp-chat" data-ui>
           <div className="lp-chat-bar" role="radiogroup" aria-label="Chọn bot để xem câu trả lời">
@@ -280,7 +284,7 @@ function Hero({ loggedIn }) {
           <div className="lp-chat-body">
             <div className="lp-msg lp-msg-user">{HERO_QUESTION}</div>
             <div className="lp-msg-row">
-              <Robot size={32} className="lp-avatar" />
+              <OwlHead size={32} className="lp-avatar" sleepy={false} />
               <div className="lp-msg lp-msg-ai" aria-live="polite">
                 <p>
                   {bot.answer.slice(0, shown)}
@@ -476,7 +480,7 @@ function HowItWorks() {
               <p className="lp-panel-title">ChatBot AI</p>
               {HERO_BOTS.map((b, i) => (
                 <div key={b.id} className={`lp-botrow ${i === 0 ? "is-selected" : ""}`}>
-                  <Robot size={28} className="lp-avatar" />
+                  <OwlHead size={28} className="lp-avatar" sleepy={false} />
                   <div>
                     <strong>{b.name}</strong>
                     <span>{b.via}</span>
@@ -640,6 +644,7 @@ function Cta() {
   }
   return (
     <section className="lp-cta lp-wrap" aria-labelledby="cta-title">
+      <Aurora intensity={1.1} calm={[0.3, 0.5]} />
       <form onSubmit={submit} data-reveal>
         <h2 id="cta-title" className="lp-display">
           Bắt đầu với email

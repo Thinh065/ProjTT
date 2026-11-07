@@ -190,67 +190,10 @@
     clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%, 100% 120px);
   }
 }
-.lp-stage-robot {
-  position: absolute;
-  z-index: 1;
-  right: clamp(24px, 4vw, 64px);
-  top: calc(46svh - 150px);
-  animation: lp-rise 0.9s var(--ease) 0.9s both;
-}
 @keyframes lp-rise {
   from {
     transform: translateY(40px);
     opacity: 0;
-  }
-}
-
-/* ---------- Robot ---------- */
-.lp-robot .lp-robot-head {
-  fill: #2b2b2b;
-}
-.lp-robot .lp-robot-face {
-  fill: #0f0f0f;
-}
-.lp-robot .lp-robot-metal {
-  fill: #3a3a3a;
-}
-.lp-robot .lp-robot-light {
-  fill: #5a5a5a;
-  transition: fill 400ms;
-}
-.lp-awake .lp-robot .lp-robot-light {
-  fill: var(--accent);
-}
-.lp-robot .lp-robot-white {
-  fill: var(--accent);
-}
-.lp-robot .lp-robot-pupil {
-  fill: #0f0f0f;
-  transition: transform 120ms linear;
-}
-.lp-robot .lp-robot-mouth {
-  fill: #3a3a3a;
-}
-.lp-robot-eye {
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: scaleY(var(--eyes-open));
-}
-.lp-robot-blink {
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.lp-awake .lp-robot-blink {
-  animation: lp-blink 5.2s 1.2s infinite;
-}
-@keyframes lp-blink {
-  0%,
-  92%,
-  100% {
-    transform: scaleY(1);
-  }
-  95% {
-    transform: scaleY(0.08);
   }
 }
 
@@ -1118,16 +1061,7 @@
       clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%, 100% 72px);
     }
   }
-  .lp-stage-robot {
-    position: relative;
-    display: block;
-    top: auto;
-    right: auto;
-    width: 112px;
-    height: 112px;
-    margin: 40px var(--margin) -28px auto;
-  }
-  .lp-chat {
+    .lp-chat {
     width: calc(100vw - 16px);
     min-width: 0;
   }
@@ -1326,5 +1260,154 @@
   }
   .lp-how-stage .lp-panel {
     width: min(340px, 100%);
+  }
+}
+
+/* ---------- Nền cực quang (WebGL) ---------- */
+.lp-top,
+.lp-cta {
+  position: relative;
+  isolation: isolate;
+}
+.lp-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--bg);
+}
+.lp-aurora canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 1.2s var(--ease);
+}
+.lp-aurora.is-ready canvas {
+  opacity: 1;
+}
+/* Dự phòng khi trình duyệt không có WebGL: vài quầng màu tĩnh */
+.lp-aurora-nogl {
+  background:
+    radial-gradient(60% 50% at 78% 38%, rgba(218, 250, 156, 0.35), transparent 70%),
+    radial-gradient(50% 45% at 62% 60%, rgba(28, 199, 143, 0.3), transparent 70%),
+    radial-gradient(40% 40% at 90% 70%, rgba(255, 166, 66, 0.22), transparent 70%),
+    var(--bg); /* taste-skill-ignore: user asked for aurora background */
+}
+.lp-aurora-nogl canvas {
+  display: none;
+}
+.lp-cta .lp-aurora {
+  left: 0;
+  right: 0;
+}
+
+
+/* ---------- Linh vật: đầu cú hoạt hình ---------- */
+.lp-owlhead {
+  display: block;
+  overflow: visible;
+}
+.lp-owlhead .owl-tuft { fill: #6b4024; }
+.lp-owlhead .owl-tuft-in { fill: #8f5a33; }
+.lp-owlhead .owl-head { fill: #8b5a34; }
+.lp-owlhead .owl-spot { fill: #f3e4c6; opacity: 0.85; }
+.lp-owlhead .owl-disc { fill: #e8d2ab; }
+.lp-owlhead .owl-blush { fill: #f2a08a; opacity: 0.45; }
+.lp-owlhead .owl-iris-ring { fill: #3a2414; }
+.lp-owlhead .owl-iris { fill: #f6d816; }
+.lp-owlhead .owl-pupil { fill: #140c06; transition: transform 140ms linear; }
+.lp-owlhead .owl-glint { fill: #fff; }
+.lp-owlhead .owl-brow {
+  fill: none;
+  stroke: #fbf3e2;
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+.lp-owlhead .owl-beak { fill: #d9c95a; }
+.lp-owlhead .owl-lid {
+  fill: none;
+  stroke: #3a2414;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+/* Mắt mở theo cuộn (chỉ với cú "buồn ngủ" ở đầu trang) */
+.lp-owlhead .owl-eye,
+.lp-owlhead .owl-blink {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.lp-owlhead.is-sleepy .owl-eye {
+  transform: scaleY(var(--eyes-open));
+}
+.lp-owlhead.is-sleepy .owl-lid {
+  opacity: calc(1 - var(--eyes-open) * 2.2);
+}
+.lp-owlhead:not(.is-sleepy) .owl-lid,
+.lp-owlhead:not(.is-sleepy) .owl-zz {
+  display: none;
+}
+
+/* Chữ z khi ngủ */
+.lp-owlhead .owl-zz {
+  fill: var(--accent);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 30px;
+  opacity: calc(1 - var(--eyes-open) * 2.5);
+}
+.lp-owlhead .owl-z-small {
+  font-size: 20px;
+}
+.lp-owlhead .owl-zz text {
+  animation: lp-zz 2.4s ease-in-out infinite;
+}
+.lp-owlhead .owl-zz text + text {
+  animation-delay: 0.6s;
+}
+@keyframes lp-zz {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Chớp mắt khi đã tỉnh, và cú ở khung chat luôn chớp */
+.lp-awake .lp-owlhead .owl-blink,
+.lp-owlhead:not(.is-sleepy) .owl-blink {
+  animation: lp-blink 5.2s 1.2s infinite;
+}
+@keyframes lp-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.08); }
+}
+
+/* Đầu cú to ở đầu trang, đậu trên mép khung màu chanh */
+.lp-mascot {
+  position: absolute;
+  z-index: 1;
+  right: clamp(24px, 5vw, 96px);
+  top: calc(46svh - 262px);
+  width: 300px;
+  height: 300px;
+  animation: lp-rise 0.9s var(--ease) 0.9s both;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.45)); /* taste-skill-ignore: mascot floats over stage */
+}
+@media (max-width: 1024px) {
+  .lp-mascot {
+    width: 220px;
+    height: 220px;
+    top: calc(46svh - 192px);
+  }
+}
+@media (max-width: 720px) {
+  .lp-mascot {
+    position: relative;
+    display: block;
+    top: auto;
+    right: auto;
+    width: 160px;
+    height: 160px;
+    margin: 32px var(--margin) -34px auto;
   }
 }
