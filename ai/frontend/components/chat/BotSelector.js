@@ -9,49 +9,88 @@ export const ESH_BOT = {
   _id: "esh-bot",
   name: "Tư vấn ESH",
   description: "Bot tư vấn ESH cho học sinh/phụ huynh dựa trên dữ liệu thực",
-  icon: "mdi:robot",
-  color: "bg-blue-500",
+  icon: "mdi:school-outline",
+  color: "bg-[#7c3aed]",
 }
 
 export default function BotSelector({ bots, selectedBot, onSelectBot }) {
   // Bot tư vấn ESH luôn xuất hiện đầu tiên
-  const allBots = [ESH_BOT, ...bots];
+  const allBots = [ESH_BOT, ...bots]
 
   return (
-    <div className="px-0 pt-4 pb-2 border-b border-gray-200">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">ChatBot AI</h2>
+    <div className="px-3 pt-3 pb-3 border-b border-[rgba(76,29,149,0.12)]">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-[#5d566f]">
+          Mô hình ChatBot AI
+        </h2>
+        <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-[#f1edff] text-[#5b21b6] border border-[rgba(124,58,237,0.22)]">
+          {allBots.length} bots
+        </span>
       </div>
 
-      <div className="space-y-2 max-h-80 overflow-y-auto w-full custom-scrollbar">
-        {allBots.map((bot) => (
-          <Card
-            key={bot._id}
-            className={cn(
-              "cursor-pointer transition-colors w-full border-2 rounded-xl min-h-12 bg-white hover:bg-gray-100",
-              selectedBot?._id === bot._id
-                ? "border-primary"
-                : "border-black"
-            )}
-            onClick={() => onSelectBot(bot)}
-          >
-            <CardContent className="py-3 px-3"> 
-              <div className="flex items-center space-x-2 h-full">
-                {bot.image ? (
-                  <img src={bot.image} alt={bot.name} className="w-6 h-6 rounded-full object-cover" />
-                ) : (
-                  <div className={cn("w-6 h-6 rounded-full flex items-center justify-center", bot.color || "bg-gray-700")}>
-                    <Icon icon={bot.icon || "mdi:robot"} className="w-3 h-3 text-white" />
+      <div className="space-y-2 max-h-80 overflow-y-auto w-full pr-1 custom-scrollbar">
+        {allBots.map((bot) => {
+          const isSelected = selectedBot?._id === bot._id
+          return (
+            <Card
+              key={bot._id}
+              className={cn(
+                "cursor-pointer transition-all duration-150 w-full border rounded-[16px] min-h-12",
+                isSelected
+                  ? "bg-[#7c3aed] text-white border-[#7c3aed] shadow-[0_12px_28px_-14px_rgba(124,58,237,0.55)]"
+                  : "bg-[rgba(255,255,255,0.82)] text-[#1d1530] border-[rgba(76,29,149,0.12)] hover:border-[#7c3aed]/35 hover:bg-[#f1edff]/60 shadow-[0_12px_32px_-18px_rgba(76,29,149,0.22)]"
+              )}
+              onClick={() => onSelectBot(bot)}
+            >
+              <CardContent className="py-2.5 px-3">
+                <div className="flex items-center space-x-2.5 h-full">
+                  {bot.image ? (
+                    <img
+                      src={bot.image}
+                      alt={bot.name}
+                      className={cn(
+                        "w-7 h-7 rounded-[10px] object-cover ring-1",
+                        isSelected ? "ring-white/40" : "ring-[rgba(76,29,149,0.12)]"
+                      )}
+                    />
+                  ) : (
+                    <div
+                      className={cn(
+                        "w-7 h-7 rounded-[10px] flex items-center justify-center flex-shrink-0 shadow-xs",
+                        isSelected
+                          ? "bg-white text-[#7c3aed] font-bold"
+                          : "bg-[#f1edff] text-[#7c3aed] border border-[rgba(124,58,237,0.2)]"
+                      )}
+                    >
+                      <Icon
+                        icon={bot.icon || "mdi:robot"}
+                        className="w-4 h-4 text-[#7c3aed]"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <h3
+                      className={cn(
+                        "font-semibold text-xs text-left truncate",
+                        isSelected ? "text-white" : "text-[#1d1530]"
+                      )}
+                    >
+                      {bot.name}
+                    </h3>
+                    <p
+                      className={cn(
+                        "text-[11px] truncate text-left",
+                        isSelected ? "text-[#f1edff]/90" : "text-[#5d566f]"
+                      )}
+                    >
+                      {bot.description}
+                    </p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <h3 className="font-medium text-sm text-left">{bot.name}</h3>
-                  <p className="text-xs text-gray-500 truncate text-left">{bot.description}</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </div>
   )

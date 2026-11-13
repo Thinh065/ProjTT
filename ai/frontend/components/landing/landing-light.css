@@ -1,0 +1,309 @@
+/* ==========================================================================
+   Chủ đề SÁNG cho trang chủ — mock D/E/F (Claude thêm, xem AGENT_HANDOFF.md)
+   Chỉ áp dụng khi .lp[data-theme="light"]; giao diện tối (mẫu A/B/C của argon) không đổi.
+   Nguyên tắc: MỘT nền chung cố định cho cả trang (LightBackdrop), các phần không có nền riêng.
+   ========================================================================== */
+
+.lp[data-theme="light"] {
+  --bg: #fbfaff;
+  --bg-alt: #f6f3ff;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.7);
+  --surface-solid: #ffffff;
+  --border: rgba(76, 29, 149, 0.12);
+  --border-strong: rgba(124, 58, 237, 0.34);
+
+  --ink: #1d1530;
+  --muted: #5d566f;
+
+  --accent: #6d28d9;
+  --accent-bright: #5b21b6;
+  --accent-solid: #7c3aed;
+  --accent-indigo: #4f46e5;
+  --accent-ink: #ffffff;
+
+  /* để lộ nền chung cố định phía sau */
+  background: transparent;
+  color: var(--ink);
+}
+
+.lp[data-theme="light"] ::selection {
+  background: rgba(124, 58, 237, 0.18);
+}
+
+/* ---------- Nền chung cố định ---------- */
+
+.lp-light-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #fbfaff;
+}
+
+/* Lớp nền React Bits (Particles / LineWaves / DotGrid) phủ toàn khung nhìn */
+.lp-light-rb {
+  position: absolute;
+  inset: 0;
+}
+.lp-light-rb > * {
+  width: 100%;
+  height: 100%;
+}
+
+/* Nền dịu bên dưới từng mẫu */
+.lp-light-bg--converge {
+  background:
+    radial-gradient(60% 50% at 15% 0%, rgba(196, 181, 253, 0.45), transparent 70%),
+    radial-gradient(50% 45% at 90% 10%, rgba(165, 243, 252, 0.4), transparent 70%),
+    radial-gradient(55% 45% at 50% 100%, rgba(187, 247, 208, 0.35), transparent 70%),
+    #fbfaff;
+}
+.lp-light-bg--trust {
+  background: #ffffff;
+}
+.lp-light-glow {
+  position: absolute;
+  top: -30vh;
+  left: 50%;
+  width: 90vw;
+  height: 70vh;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(196, 181, 253, 0.5), transparent);
+  pointer-events: none;
+}
+
+/* ---------- Bề mặt: thẻ, khung, viên thuốc → kính trắng ---------- */
+
+.lp[data-theme="light"] :is(
+    .spotlight-card,
+    .pixel-card,
+    .lp-wordmark-badge,
+    .lp-hero-pill,
+    .lp-chip,
+    .lp-sec-kicker,
+    .lp-telemetry-pill,
+    .lp-router-conduit,
+    .lp-conduit-step,
+    .lp-composer-input-wrap,
+    .lp-meta-item,
+    .lp-feat-counter-pill,
+    .lp-feat-layout-switch,
+    .lp-feat-viz,
+    .lp-viz-cite,
+    .lp-viz-node,
+    .lp-step-card,
+    .lp-how-stage,
+    .lp-stage-chip,
+    .lp-admin-dist,
+    .lp-admin-pick,
+    .lp-admin-pick-log,
+    .lp-admin-stat,
+    .lp-faq-highlights,
+    .lp-cta-bar,
+    .lp-botrow,
+    .lp-botkeys li,
+    .lp-tile:not(.lp-tile-go),
+    .lp-msg-ai,
+    .lp-btn-glass
+  ) {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: var(--border) !important;
+  box-shadow: 0 1px 2px rgba(29, 21, 48, 0.04), 0 12px 32px -18px rgba(76, 29, 149, 0.22) !important;
+  color: var(--ink);
+}
+
+.lp[data-theme="light"] .border-glow-card {
+  --card-bg: #ffffff !important;
+}
+.lp[data-theme="light"] .lp-feat-card-inner,
+.lp[data-theme="light"] .lp-feat-card.is-on .lp-feat-card-inner {
+  background: transparent !important;
+}
+.lp[data-theme="light"] :is(.lp-step-card.is-active, .lp-botrow.is-selected, .lp-faq-list li button.is-sel, .lp-table tr.is-selected) {
+  background: rgba(124, 58, 237, 0.08) !important;
+  border-color: rgba(124, 58, 237, 0.4) !important;
+}
+.lp[data-theme="light"] .lp-faq-list li button {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: var(--border);
+  color: var(--ink);
+}
+.lp[data-theme="light"] .lp-table th {
+  background: #f6f3ff !important;
+  color: var(--muted);
+}
+.lp[data-theme="light"] .lp input,
+.lp[data-theme="light"] input {
+  background: transparent !important;
+  color: var(--ink) !important;
+}
+.lp[data-theme="light"] input::placeholder {
+  color: #8f88a3 !important;
+}
+.lp[data-theme="light"] code {
+  background: #f3f0ff !important;
+  color: #4c1d95 !important;
+  border-color: var(--border) !important;
+}
+.lp[data-theme="light"] .rubber-segment {
+  background: #f1edff !important;
+}
+.lp[data-theme="light"] .rubber-segment__item {
+  color: #4c3f6b !important;
+}
+
+/* ---------- Chữ: sáng → tím than ---------- */
+
+.lp[data-theme="light"] :is(
+    .lp-head,
+    .lp-display,
+    .lp-lead,
+    .lp-subhead,
+    .lp-chip-name,
+    .lp-msg-ai,
+    .lp-msg-ai p,
+    .lp-conduit-num,
+    .lp-preview-tok-badge,
+    .lp-viz-session,
+    .lp-viz-tok-total,
+    .lp-viz-node,
+    .lp-admin-log-q,
+    .lp-faq-q,
+    .lp-faq-answer,
+    .lp-faq-pane-q,
+    .lp-feat-title,
+    .lp-step-title,
+    .lp-panel-title,
+    .lp-preview-title,
+    .lp-composer-title,
+    .lp-admin-card-title,
+    .lp-admin-stat-val,
+    .lp-tile:not(.lp-tile-go) p,
+    .lp-tile-big,
+    .lp-tile-nav-inner a,
+    .lp-nav a:not(.lp-nav-action),
+    .lp-user-cell strong,
+    .lp-botkey-main strong,
+    .lp-botrow-info strong,
+    .lp-table strong
+  ) {
+  color: var(--ink) !important;
+}
+.lp[data-theme="light"] :is(.lp-feat-detail, .lp-step-detail, .lp-admin-text, .lp-user-cell span, .lp-botrow-info span, .lp-botkey-main span, .lp-panel-sub, .lp-tile small, .lp-tile-kicker, .lp-preview-hint, .lp-admin-card-hint, .lp-cta-note) {
+  color: var(--muted) !important;
+}
+.lp[data-theme="light"] .text-sky-300 {
+  color: #0369a1 !important;
+}
+.lp[data-theme="light"] :is(.lp-badge, .lp-feat-tag, .lp-ex-tag, .lp-route-badge, .lp-token-pill) {
+  background: #f1edff !important;
+  border-color: rgba(124, 58, 237, 0.22) !important;
+  color: #5b21b6 !important;
+}
+.lp[data-theme="light"] .lp-badge.is-blocked {
+  background: #fff1f2 !important;
+  border-color: rgba(225, 29, 72, 0.25) !important;
+  color: #be123c !important;
+}
+.lp[data-theme="light"] .lp-accent {
+  color: #6d28d9;
+}
+
+/* Chữ gradient & chữ ánh bạc của bản tối → tông tím đậm để đọc được trên nền sáng */
+.lp[data-theme="light"] .gradient-text__content {
+  background-image: linear-gradient(90deg, #6d28d9, #4f46e5 50%, #0e7490) !important;
+}
+.lp[data-theme="light"] .gradient-text__glow {
+  display: none;
+}
+/* ShinyText dùng background-clip: text với màu sáng → trên nền sáng tô đặc màu tím than */
+.lp[data-theme="light"] .shiny-text {
+  -webkit-text-fill-color: #4c1d95 !important;
+  background: none !important;
+  color: #4c1d95 !important;
+}
+
+/* Viền mờ phân tách giữa các phần */
+.lp[data-theme="light"] :is(.lp-features, .lp-faq, .lp-show, .lp-how, .lp-admin, .lp-cta, .lp-footer) {
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+
+/* Wordmark TechText ở chân trang lấy màu chữ hiện tại (currentColor) */
+.lp[data-theme="light"] .lp-tile-brand {
+  color: var(--ink);
+}
+
+/* ---------- Phần đầu trang (chủ đề sáng): không có vòng Orb → hai cột cân bằng ---------- */
+@media (min-width: 1200px) {
+  .lp[data-theme="light"] .lp-hero {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: clamp(24px, 3vw, 48px);
+  }
+  .lp[data-theme="light"] .lp-hero-copy {
+    grid-column: 1 / 7;
+    padding-right: 0;
+  }
+  .lp[data-theme="light"] .lp-stage {
+    grid-column: 7 / 13;
+    padding-left: 0;
+    align-items: stretch;
+  }
+  .lp[data-theme="light"] .lp-hero .lp-display {
+    font-size: clamp(2.8rem, 4.2vw, 4.4rem);
+  }
+  .lp[data-theme="light"] .lp-hero .lp-lead {
+    font-size: var(--step-lead);
+    max-width: 40ch;
+  }
+  .lp[data-theme="light"] .lp-hero-actions {
+    flex-wrap: nowrap;
+  }
+  .lp[data-theme="light"] .lp-chat.spotlight-card {
+    max-width: none;
+    font-size: 14px;
+  }
+  .lp[data-theme="light"] .lp-mascot {
+    width: 120px;
+    height: 120px;
+    margin: 0 22px -20px auto;
+  }
+}
+
+/* ---------- Chữ sáng còn sót (dò tự động trên trang): thẻ <strong> không class, nhãn phụ ---------- */
+.lp[data-theme="light"] :is(
+    .spotlight-card,
+    .lp-telemetry-pill,
+    .lp-conduit-step,
+    .lp-admin-dist-head,
+    .lp-feat-viz,
+    .lp-admin-pick,
+    .lp-faq-highlights,
+    .lp-step-card,
+    .lp-meta-item,
+    .lp-feat-counter-pill,
+    .lp-tile:not(.lp-tile-go)
+  )
+  strong {
+  color: var(--ink) !important;
+}
+.lp[data-theme="light"] :is(
+    .lp-admin-dist-legend span,
+    .lp-cta-perks span,
+    .lp-faq-hl-item span,
+    .lp-step-time,
+    .lp-viz-chip span,
+    .lp-viz-guard span,
+    .lp-admin-log-bot
+  ) {
+  color: var(--muted) !important;
+}
+.lp[data-theme="light"] :is(.lp-viz-code, .lp-faq-cat-pill) {
+  color: #5b21b6 !important;
+}
+.lp[data-theme="light"] :is(.lattice-loader__text, .lattice-loader__timer) {
+  color: #6d28d9 !important;
+}

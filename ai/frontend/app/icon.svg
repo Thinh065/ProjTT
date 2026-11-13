@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="cf-icon-face" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stopColor="#ffffff" />
+      <stop offset="65%" stopColor="#ede9fe" />
+      <stop offset="100%" stopColor="#ddd6fe" />
+    </linearGradient>
+  </defs>
+
+  <!-- Nền vuông bo góc tím #7c3aed -->
+  <rect width="64" height="64" rx="14" fill="#7c3aed" />
+
+  <!-- Tai cáo trái & phải (tím nhạt #ddd6fe tương phản cao trên nền #7c3aed) -->
+  <path d="M 10 30 C 7 19 8 10 12 7 C 16 5 22 11 27 18 Z" fill="url(#cf-icon-face)" />
+  <path d="M 13.5 25 C 12 18 12 13 14.5 11.5 C 16.5 10.5 20 14 23 19 Z" fill="#5b21b6" />
+
+  <path d="M 54 30 C 57 19 56 10 52 7 C 48 5 42 11 37 18 Z" fill="url(#cf-icon-face)" />
+  <path d="M 50.5 25 C 52 18 52 13 49.5 11.5 C 47.5 10.5 44 14 41 19 Z" fill="#5b21b6" />
+
+  <!-- Đầu & má cáo bầu bĩnh -->
+  <path
+    d="M 32 14
+       C 46 14 54 22 55 34
+       C 58 38 58 44 53 49
+       C 47 54 39 58 32 58
+       C 25 58 17 54 11 49
+       C 6 44 6 38 9 34
+       C 10 22 18 14 32 14 Z"
+    fill="url(#cf-icon-face)"
+  />
+
+  <!-- Mảng trán tím đặc trưng loài cáo & ngọc AI xanh lơ -->
+  <path
+    d="M 32 14 C 43 14 50 19 53 28 Q 42 24 32 30 Q 22 24 11 28 C 14 19 21 14 32 14 Z"
+    fill="#8b5cf6"
+  />
+  <circle cx="32" cy="20" r="2.8" fill="#22d3ee" />
+
+  <!-- Kính Visor HUD phát sáng -->
+  <path
+    d="M 11 28
+       C 17 23 25 23 32 25
+       C 39 23 47 23 53 28
+       C 56 32 55 40 50 43
+       C 43 45 37 42 32 40
+       C 27 42 21 45 14 43
+       C 9 40 8 32 11 28 Z"
+    fill="#1e1b4b"
+    stroke="#22d3ee"
+    strokeWidth="2.2"
+    strokeLinejoin="round"
+  />
+
+  <!-- Đôi mắt robot xanh lơ #22d3ee to tròn (đọc rõ ở 16x16 và 32x32) -->
+  <circle cx="22" cy="34" r="5.2" fill="#22d3ee" />
+  <circle cx="20.5" cy="32.2" r="2" fill="#ffffff" />
+
+  <circle cx="42" cy="34" r="5.2" fill="#22d3ee" />
+  <circle cx="40.5" cy="32.2" r="2" fill="#ffffff" />
+
+  <!-- Mũi cáo tím đậm -->
+  <path d="M 27.5 47 Q 32 45.2 36.5 47 L 32 52.5 Z" fill="#4c1d95" />
+</svg>

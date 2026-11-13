@@ -1,18 +1,23 @@
 "use client"
-import { API_BACKEND } from "@/lib/api"
 
+import { apiFetch } from "@/lib/api"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import LightBackdrop from "@/components/landing/LightBackdrop"
+import SpotlightCard from "@/components/landing/react-bits/SpotlightCard"
+import StarBorder from "@/components/landing/react-bits/StarBorder"
+import ShinyText from "@/components/landing/react-bits/ShinyText"
+import ClickSpark from "@/components/landing/react-bits/ClickSpark"
+import CyberFox from "@/components/landing/CyberFox"
+import "@/components/landing/landing.css"
+import "@/components/landing/landing-light.css"
 
 export default function RegisterPage() {
-  const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState("")
   const [formData, setFormData] = useState({
     name: "",
@@ -27,25 +32,22 @@ export default function RegisterPage() {
   const router = useRouter()
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
 
-  // Điền sẵn email khi đến từ trang giới thiệu (?email=...)
   useEffect(() => {
     const email = new URLSearchParams(window.location.search).get("email")
     if (email) setFormData((prev) => ({ ...prev, email }))
   }, [])
 
   const handleAvatarChange = async (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (file) {
       setAvatarPreview(URL.createObjectURL(file))
       const form = new FormData()
       form.append("image", file)
-      const res = await fetch(`${API_BACKEND}/api/upload/avatar`, {
-        method: "POST",
-        body: form,
-      })
-      const data = await res.json()
+      const { data } = await apiFetch("/api/upload/avatar", { method: "POST", body: form, auth: false })
       if (data.url) {
         setFormData((prev) => ({ ...prev, avatar: data.url }))
+      } else {
+        console.warn("Avatar upload error:", data.message)
       }
     }
   }
@@ -65,24 +67,23 @@ export default function RegisterPage() {
     }
     setLoading(true)
     try {
-      const res = await fetch(`${API_BACKEND}/api/auth/register`, {
+      const { ok, data } = await apiFetch("/api/auth/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        auth: false,
+        body: {
           name: formData.name,
           email: formData.email,
           password: formData.password,
           avatar: formData.avatar,
-        }),
+        },
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.message)
+      if (!ok) throw new Error(data.message)
       showConfirm({
         message: "Đăng ký thành công! Vui lòng đăng nhập.",
         onlyClose: true,
         onConfirm: () => {
           router.push("/auth/login")
-        }
+        },
       })
     } catch (err) {
       showConfirm({ message: err.message, onlyClose: true })
@@ -91,126 +92,180 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Đăng ký</CardTitle>
-          <CardDescription>Tạo tài khoản Multi ChatBot AI mới</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {/* Khung tròn chọn ảnh đại diện, click được */}
-            <div className="flex justify-center mb-2">
-              <label
-                htmlFor="avatar"
-                className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center shadow cursor-pointer hover:opacity-80 transition"
-                style={{ position: "relative" }}
-              >
-                {avatarPreview ? (
-                  <img
-                    src={avatarPreview}
-                    alt="avatar preview"
-                    className="w-24 h-24 rounded-full object-cover"
+    <ClickSpark sparkColor={["#7c3aed", "#a78bfa", "#c4b5fd"]} sparkCount={7} sparkRadius={26} duration={400}>
+      <div className="relative min-h-screen flex items-center justify-center p-4 bg-transparent text-[#1d1530] overflow-hidden py-10">
+        <LightBackdrop variant="trust" />
+
+        <div className="relative z-10 w-full max-w-md">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs text-[#7c3aed] hover:text-[#6d28d9] font-medium transition-colors mb-4"
+          >
+            ← Về trang chủ
+          </Link>
+
+          <SpotlightCard
+            theme="light"
+            spotlightColor="#7c3aed"
+            intensity={0.18}
+            spotlightSize={300}
+            borderGlow={0.88}
+            style={{
+              "--spotlight-card-surface": "rgba(255,255,255,.88)",
+              "--spotlight-card-border": "rgba(76,29,149,.12)",
+              "--spotlight-card-shadow": "0 12px 32px -18px rgba(76,29,149,.22)",
+              borderRadius: "18px",
+            }}
+            className="w-full p-6 sm:p-8 rounded-[18px] bg-[rgba(255,255,255,.88)] backdrop-blur-xl border border-[rgba(76,29,149,.12)] shadow-[0_12px_32px_-18px_rgba(76,29,149,.22)]"
+          >
+            <div className="text-center mb-5">
+              <div className="flex justify-center mb-2">
+                <CyberFox size={72} sleepy={false} label="Linh vật Cyber Fox" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#1d1530]">
+                <ShinyText text="Tạo tài khoản ProjTT" color="#1d1530" shineColor="#7c3aed" speed={3} />
+              </h1>
+              <p className="text-xs text-[#5d566f] mt-1">Trải nghiệm mọi mô hình AI trong một giao diện duy nhất</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex justify-center mb-2">
+                <label
+                  htmlFor="avatar"
+                  className="w-20 h-20 rounded-full bg-white border border-[rgba(76,29,149,.18)] flex items-center justify-center cursor-pointer hover:border-[#7c3aed] transition relative overflow-hidden group shadow-inner"
+                >
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="avatar preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <Icon
+                      icon="mdi:camera-plus"
+                      className="w-8 h-8 text-[#5d566f] group-hover:text-[#7c3aed] transition"
+                    />
+                  )}
+                  <input
+                    id="avatar"
+                    name="avatar"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarChange}
+                    className="hidden"
                   />
-                ) : (
-                  <Icon icon="mdi:robot" className="w-12 h-12 text-gray-400" />
-                )}
-                <input
-                  id="avatar"
-                  name="avatar"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
-                {/* Icon máy ảnh nhỏ góc dưới nếu muốn */}
-                <span className="absolute bottom-2 right-2 bg-white rounded-full p-1 shadow">
-                  <Icon icon="mdi:camera" className="w-5 h-5 text-gray-500" />
-                </span>
-              </label>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name">Họ và tên</Label>
-              <Input
-                id="name"
-                name="name"
-                type="text"
-                placeholder="Nguyễn Văn T"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="your@email.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                autoComplete="username"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <div className="relative">
+                </label>
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="name" className="text-xs font-medium text-[#1d1530]">
+                  Họ và tên
+                </Label>
                 <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={formData.password}
+                  id="name"
+                  name="name"
+                  type="text"
+                  placeholder="Nguyễn Văn A"
+                  value={formData.name}
                   onChange={handleChange}
                   required
+                  className="bg-white border-[rgba(76,29,149,.18)] text-[#1d1530] placeholder:text-[#5d566f]/60 focus-visible:ring-[#7c3aed] focus-visible:border-[#7c3aed]"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} className="h-4 w-4" />
-                </Button>
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Xác nhận mật khẩu</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
-                  Đang đăng ký...
-                </>
-              ) : (
-                "Đăng ký"
-              )}
-            </Button>
-            <div className="text-center text-sm">
-              Đã có tài khoản?{" "}
-              <Link href="/auth/login" className="text-primary hover:underline">
-                Đăng nhập ngay
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
-      {ConfirmDialog}
-    </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="email" className="text-xs font-medium text-[#1d1530]">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  autoComplete="username"
+                  className="bg-white border-[rgba(76,29,149,.18)] text-[#1d1530] placeholder:text-[#5d566f]/60 focus-visible:ring-[#7c3aed] focus-visible:border-[#7c3aed]"
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="password" className="text-xs font-medium text-[#1d1530]">
+                  Mật khẩu
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="bg-white border-[rgba(76,29,149,.18)] text-[#1d1530] placeholder:text-[#5d566f]/60 pr-10 focus-visible:ring-[#7c3aed] focus-visible:border-[#7c3aed]"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-0 top-0 h-full px-3 text-[#5d566f] hover:text-[#7c3aed] transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="confirmPassword" className="text-xs font-medium text-[#1d1530]">
+                  Xác nhận mật khẩu
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  required
+                  className="bg-white border-[rgba(76,29,149,.18)] text-[#1d1530] placeholder:text-[#5d566f]/60 focus-visible:ring-[#7c3aed] focus-visible:border-[#7c3aed]"
+                />
+              </div>
+
+              <div className="pt-2">
+                <StarBorder
+                  as="button"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full justify-center text-sm font-semibold"
+                  color="#f3e8ff"
+                  trailColor="#8b5cf6"
+                  backgroundColor="#7c3aed"
+                  textColor="#ffffff"
+                  borderColor="rgba(124, 58, 237, 0.35)"
+                  radius={10}
+                  thickness={1.5}
+                  stars={2}
+                  sparkle
+                >
+                  {loading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
+                      Đang đăng ký...
+                    </span>
+                  ) : (
+                    "Đăng ký"
+                  )}
+                </StarBorder>
+              </div>
+
+              <div className="text-center text-xs text-[#5d566f] pt-2">
+                Đã có tài khoản?{" "}
+                <Link href="/auth/login" className="text-[#7c3aed] font-medium hover:underline">
+                  Đăng nhập
+                </Link>
+              </div>
+            </form>
+          </SpotlightCard>
+        </div>
+        {ConfirmDialog}
+      </div>
+    </ClickSpark>
   )
 }

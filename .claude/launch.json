@@ -4,13 +4,34 @@
     {
       "name": "backend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "ai/backend", "run", "start"],
+      "runtimeArgs": [
+        "--prefix",
+        "ai/backend",
+        "run",
+        "start"
+      ],
+      "port": 5000
+    },
+    {
+      "name": "backend-memory",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "ai/backend",
+        "run",
+        "dev:memory"
+      ],
       "port": 5000
     },
     {
       "name": "frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "ai/frontend", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "ai/frontend",
+        "run",
+        "dev"
+      ],
       "port": 3000
     }
   ]

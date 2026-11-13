@@ -1,0 +1,35 @@
+.rb-glare-hover {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  isolation: isolate;
+  --gh-angle: -45deg;
+  --gh-duration: 650ms;
+  --gh-size: 240%;
+  --gh-rgba: rgba(233, 213, 255, 0.32);
+}
+
+.rb-glare-hover::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    var(--gh-angle),
+    hsla(0, 0%, 0%, 0) 58%,
+    var(--gh-rgba) 70%,
+    hsla(0, 0%, 0%, 0) 82%
+  );
+  background-size: var(--gh-size) var(--gh-size), 100% 100%;
+  background-repeat: no-repeat;
+  background-position: -120% -120%, 0 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: background-position var(--gh-duration) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rb-glare-hover:hover::before,
+.rb-glare-hover:focus-visible::before {
+  background-position: 120% 120%, 0 0;
+}

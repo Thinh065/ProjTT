@@ -21,6 +21,8 @@ export function logout() {
   localStorage.removeItem("token")
   localStorage.removeItem("user")
   localStorage.removeItem("currentChat")
+  localStorage.removeItem("currentChatId")
+  localStorage.removeItem("currentBotId")
   if (window.location.pathname !== "/auth/login") window.location.href = "/auth/login"
 }
 

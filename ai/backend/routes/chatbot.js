@@ -3,10 +3,11 @@ const ModelClient = require("@azure-rest/ai-inference").default;
 const { isUnexpected } = require("@azure-rest/ai-inference");
 const { AzureKeyCredential } = require("@azure/core-auth");
 const ApiKey = require("../models/ApiKey");
-const ChatLog = require("../models/ChatLog");
 const { auth } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
-const { buildEshPrompt, NO_INFO_ANSWER } = require("../utils/prompts");
+const rateLimit = require("../utils/rateLimit");
+const { getOpenRouterApiKey, OPENROUTER_CHAT_URL } = require("../utils/openrouter");
+const { callEshBot } = require("../utils/eshBot");
 
 const router = express.Router();
 
@@ -14,6 +15,9 @@ const ESH_BOT_ID = "esh-bot";
 const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_MESSAGES = 50;
 const MAX_CONTENT_LENGTH = 20_000;
+
+// Mỗi tài khoản tối đa 30 tin nhắn/phút (tránh đốt quota API)
+const chatLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => req.user.id });
 
 class UpstreamError extends Error {
   constructor(message, status = 502) {
@@ -60,15 +64,20 @@ async function callGithubModel(bot, messages) {
 
 // Bất kỳ API tương thích OpenAI (OpenRouter, OpenAI, Gemini OpenAI-compatible, ...)
 async function callOpenAICompatible(bot, messages) {
-  const endpoint = bot.baseURL.endsWith("/chat/completions")
-    ? bot.baseURL
-    : bot.baseURL.replace(/\/$/, "") + "/chat/completions";
+  const configuredKey = bot.apiKey?.trim();
+  const sharedKey = configuredKey ? "" : getOpenRouterApiKey(bot.baseURL);
+  if (!configuredKey && !sharedKey) {
+    throw new UpstreamError("ChatBot chưa có API key.", 503);
+  }
+  const baseURL = bot.baseURL.trim().replace(/\/$/, "");
+  const endpoint = baseURL.endsWith("/chat/completions") ? baseURL : `${baseURL}/chat/completions`;
 
-  const response = await fetch(endpoint, {
+  const response = await fetch(sharedKey ? OPENROUTER_CHAT_URL : endpoint, {
     method: "POST",
+    ...(sharedKey && { redirect: "error" }),
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${bot.apiKey}`,
+      Authorization: `Bearer ${configuredKey || sharedKey}`,
       ...(bot.referer && { "HTTP-Referer": bot.referer }),
       ...(bot.title && { "X-Title": bot.title }),
     },
@@ -87,81 +96,11 @@ async function callOpenAICompatible(bot, messages) {
   };
 }
 
-// Bot tư vấn ESH: RAG trên ChromaDB + Gemini
-async function callEshBot(messages, userId) {
-  const question = messages[messages.length - 1].content;
-  const conversation = messages
-    .slice(-7, -1)
-    .map((m) => `${m.role === "user" ? "Học sinh" : "Cô Thuỷ"}: ${m.content}`)
-    .join("\n");
-
-  let sourceChunks = [];
-  try {
-    const { searchSimilarChunks } = require("../models/KnowledgeChunk");
-    const chunks = await searchSimilarChunks(question, 10);
-    sourceChunks = (chunks || []).filter((c) => c && !c.startsWith(NO_INFO_ANSWER.slice(0, 12)));
-  } catch (err) {
-    console.error("RAG search error:", err.message);
-  }
-
-  if (!process.env.GEMINI_API_KEY) {
-    throw new UpstreamError("Server chưa cấu hình GEMINI_API_KEY", 500);
-  }
-
-  const model = process.env.GEMINI_MODEL || "gemma-3n-e2b-it";
-  const prompt = buildEshPrompt({ context: sourceChunks.join("\n\n"), conversation, question });
-
-  let answer = "";
-  let errorText = "";
-  let tokens = { input: 0, output: 0, total: 0 };
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY,
-        },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 1.0, topK: 40, topP: 0.95, maxOutputTokens: 2048 },
-        }),
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      }
-    );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      errorText = upstreamErrorMessage(data, `Gemini API lỗi (${response.status})`);
-      throw new UpstreamError(errorText, response.status === 429 ? 429 : 502);
-    }
-    answer = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
-    const u = data.usageMetadata || {};
-    tokens = {
-      input: u.promptTokenCount || 0,
-      output: u.candidatesTokenCount || 0,
-      total: u.totalTokenCount || (u.promptTokenCount || 0) + (u.candidatesTokenCount || 0),
-    };
-    return { message: answer || "Không có phản hồi từ Gemini", tokens, sourceChunks };
-  } catch (err) {
-    errorText = errorText || err.message;
-    throw err;
-  } finally {
-    ChatLog.create({
-      user: userId,
-      question,
-      sourceChunks,
-      answer,
-      error: errorText,
-      totalTokens: tokens.total,
-    }).catch((e) => console.error("ChatLog error:", e.message));
-  }
-}
-
 // Gửi tin nhắn tới một ChatBot. Client chỉ gửi botId, server tự lấy apiKey/baseURL/model từ DB.
 router.post(
   "/dynamic",
   auth,
+  chatLimiter,
   asyncHandler(async (req, res) => {
     const { botId } = req.body;
     const messages = sanitizeMessages(req.body.messages);
@@ -186,7 +125,8 @@ router.post(
       }
       res.json(result);
     } catch (err) {
-      if (err instanceof UpstreamError) {
+      // Lỗi có chủ đích từ upstream hoặc bot ESH (thiếu cấu hình, Gemini quá tải...)
+      if (err instanceof UpstreamError || [429, 502, 503].includes(err.status)) {
         return res.status(err.status).json({ message: err.message });
       }
       if (err.name === "TimeoutError" || err.name === "AbortError") {

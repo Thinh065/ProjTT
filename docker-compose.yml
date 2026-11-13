@@ -1,0 +1,36 @@
+# Chạy cả hệ thống: docker compose up --build
+# Trước đó: copy ai/backend/.env.example thành ai/backend/.env và điền JWT_SECRET, các API key.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+
+  backend:
+    build: ./ai/backend
+    restart: unless-stopped
+    env_file: ./ai/backend/.env
+    environment:
+      NODE_ENV: production
+      MONGO_URI: mongodb://mongo:27017/
+      CORS_ORIGIN: http://localhost:3000
+    depends_on:
+      - mongo
+    ports:
+      - "5000:5000"
+
+  frontend:
+    build:
+      context: ./ai/frontend
+      args:
+        # Trình duyệt của người dùng gọi thẳng backend nên dùng địa chỉ nhìn từ máy người dùng
+        NEXT_PUBLIC_API_BACKEND: http://localhost:5000
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  mongo-data:

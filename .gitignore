@@ -8,9 +8,22 @@
 **/dist/
 **/build/
 
-**/package-lock.json
+# Dự án dùng npm: commit package-lock.json, không dùng yarn/pnpm
 **/yarn.lock
-**/pnpm-lock.json
+**/pnpm-lock.yaml
+
+# Next.js build output
+**/.next/
+**/tsconfig.tsbuildinfo
 
 # Design inspection output
 .taste-skill/
+
+# Cấu hình công cụ Serena (Antigravity)
+.serena/
+
+# Tệp cá nhân / ảnh chụp kiểm tra ở thư mục gốc (không thuộc mã nguồn)
+/*.png
+/*.pdf
+/Ban_giao_ung_tuyen_*.md
+/tmp/

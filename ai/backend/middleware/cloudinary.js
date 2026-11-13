@@ -35,8 +35,6 @@ const makeUploader = ({ folder, publicId, transformation }) =>
     fileFilter: imageFilter,
   });
 
-const randomId = () => crypto.randomUUID();
-
 // Avatar của user: mỗi user một file, ghi đè khi đổi
 const uploadUserAvatar = makeUploader({
   folder: "avatars",
@@ -47,14 +45,8 @@ const uploadUserAvatar = makeUploader({
 // Ảnh dùng chung (avatar lúc đăng ký, ảnh bot): tên ngẫu nhiên
 const uploadImage = makeUploader({
   folder: "avatars",
-  publicId: () => randomId(),
+  publicId: () => crypto.randomUUID(),
   transformation: [{ width: 256, height: 256, crop: "limit" }],
 });
 
-// Ảnh gửi trong chat
-const uploadChatImage = makeUploader({
-  folder: "chat-images",
-  publicId: (req) => `${req.user?.id || "anon"}_${randomId()}`,
-});
-
-module.exports = { cloudinary, uploadUserAvatar, uploadImage, uploadChatImage };
+module.exports = { uploadUserAvatar, uploadImage };

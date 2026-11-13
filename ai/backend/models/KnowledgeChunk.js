@@ -1,8 +1,6 @@
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
-const { CloudClient } = require("chromadb");
-const { HfInference } = require("@huggingface/inference");
 
 // Tải biến môi trường từ .env (khi chạy file này trực tiếp)
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -25,6 +23,7 @@ function getCollection() {
     if (!process.env.CHROMA_API_KEY) {
       return Promise.reject(new Error("Chưa cấu hình CHROMA_API_KEY"));
     }
+    const { CloudClient } = require("chromadb");
     const client = new CloudClient({
       apiKey: process.env.CHROMA_API_KEY,
       tenant: process.env.CHROMA_TENANT,
@@ -60,7 +59,10 @@ async function retryWithBackoff(fn, maxRetries = 3) {
 
 // Lấy embedding từ Hugging Face
 async function getEmbedding(text) {
-  if (!inference) inference = new HfInference(process.env.HF_TOKEN);
+  if (!inference) {
+    const { HfInference } = require("@huggingface/inference");
+    inference = new HfInference(process.env.HF_TOKEN);
+  }
   const cleanText = text.trim().replace(/\s+/g, " ").slice(0, 2000);
   return retryWithBackoff(() =>
     inference.featureExtraction({
