@@ -55,6 +55,8 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 
 ## Nhật ký
 
+- **2026-11-14 · Claude (avatar bot theo hãng)** — `components/chat/BotAvatar.js`: avatar bot = ảnh riêng (`image`) → logo hãng đoán từ `model`/tên (Simple Icons qua Iconify: NVIDIA, Baidu, Gemini, OpenAI, Claude, Meta, Mistral, DeepSeek, Qwen, Microsoft, Perplexity, Hugging Face) → robot mặc định. Bot có `icon` riêng (Tư vấn ESH) giữ nguyên. Dùng ở `BotSelector`, `ChatInterface` (màn trống, tin nhắn, đang gõ) và bảng ChatBot trang quản trị. Thêm hãng mới: thêm một dòng vào `BRANDS`.
+
 - **2026-11-14 · Claude (làm sạch lịch sử git)** — Theo yêu cầu người dùng. Dùng `git-filter-repo` gỡ `ai/backend/.env` (từng commit trong 32 commit), mọi `node_modules/` và thay 14 giá trị key trong các `.env*` cũ bằng `***REMOVED***`; giữ commit và tác giả. Force-push `main` + `fix/audit-security-history` (hash mọi commit đã đổi), xóa nhánh `fix/fix_env`. Repo 128 MB → 18 MB. Sao lưu lịch sử cũ (CÒN chứa key): `C:\Code\_backup\ProjTT-truoc-xoa-lich-su-20261113.git`. **Ai có bản clone cũ phải clone lại**, đừng push lịch sử cũ lên. `refs/pull/1` và `refs/pull/2` trên GitHub vẫn giữ commit cũ (chỉ GitHub Support xóa được) → **vẫn phải thu hồi key**.
 
 - **2026-11-14 · Claude (đăng nhập + model free)**

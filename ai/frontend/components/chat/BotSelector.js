@@ -1,8 +1,8 @@
 "use client"
 
 import { Card, CardContent } from "@/components/ui/card"
-import { Icon } from "@iconify/react"
 import { cn } from "@/lib/utils"
+import BotAvatar from "@/components/chat/BotAvatar"
 
 // Bot tư vấn ESH (RAG) được xử lý riêng ở backend qua botId "esh-bot"
 export const ESH_BOT = {
@@ -44,30 +44,7 @@ export default function BotSelector({ bots, selectedBot, onSelectBot }) {
             >
               <CardContent className="py-2.5 px-3">
                 <div className="flex items-center space-x-2.5 h-full">
-                  {bot.image ? (
-                    <img
-                      src={bot.image}
-                      alt={bot.name}
-                      className={cn(
-                        "w-7 h-7 rounded-[10px] object-cover ring-1",
-                        isSelected ? "ring-white/40" : "ring-[rgba(76,29,149,0.12)]"
-                      )}
-                    />
-                  ) : (
-                    <div
-                      className={cn(
-                        "w-7 h-7 rounded-[10px] flex items-center justify-center flex-shrink-0 shadow-xs",
-                        isSelected
-                          ? "bg-white text-[#7c3aed] font-bold"
-                          : "bg-[#f1edff] text-[#7c3aed] border border-[rgba(124,58,237,0.2)]"
-                      )}
-                    >
-                      <Icon
-                        icon={bot.icon || "mdi:robot"}
-                        className="w-4 h-4 text-[#7c3aed]"
-                      />
-                    </div>
-                  )}
+                  <BotAvatar bot={bot} size="sm" selected={isSelected} />
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <h3
                       className={cn(

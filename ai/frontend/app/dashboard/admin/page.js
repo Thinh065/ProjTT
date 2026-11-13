@@ -11,6 +11,7 @@ import { Icon } from "@iconify/react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { apiFetch, getStoredUser } from "@/lib/api"
+import BotAvatar from "@/components/chat/BotAvatar"
 
 const EMPTY_FORM = {
   name: "",
@@ -418,13 +419,7 @@ export default function AdminPage() {
                     className="border-b border-[rgba(76,29,149,0.08)] hover:bg-[#f1edff]/40 transition-colors"
                   >
                     <TableCell className="flex items-center space-x-3 text-[#1d1530]">
-                      {ai.image && (
-                        <img
-                          src={ai.image}
-                          alt={ai.name}
-                          className="w-8 h-8 rounded-full object-cover ring-1 ring-[rgba(124,58,237,0.22)]"
-                        />
-                      )}
+                      <BotAvatar bot={ai} size="md" />
                       <span className="font-medium text-[#1d1530] whitespace-nowrap">{ai.name}</span>
                     </TableCell>
                     <TableCell className="text-[#1d1530] font-mono text-xs">{ai.model}</TableCell>

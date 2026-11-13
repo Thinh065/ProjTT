@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { apiFetch, getStoredUser } from "@/lib/api"
 import { messageText } from "@/lib/chat"
+import BotAvatar from "@/components/chat/BotAvatar"
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messages = chat?.messages || []
@@ -172,9 +173,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4 min-w-0 w-full custom-scrollbar">
         {messages.length === 0 ? (
           <div className="text-center py-12 max-w-sm mx-auto">
-            <div className="w-16 h-16 rounded-[18px] flex items-center justify-center mx-auto mb-4 bg-[#f1edff] border border-[rgba(124,58,237,0.22)] shadow-[0_12px_32px_-18px_rgba(76,29,149,0.22)]">
-              <Icon icon={bot.icon || "mdi:robot"} className="w-8 h-8 text-[#7c3aed]" />
-            </div>
+            <BotAvatar bot={bot} size="lg" className="mx-auto mb-4 shadow-[0_12px_32px_-18px_rgba(76,29,149,0.22)]" />
             <h3 className="text-base font-semibold text-[#1d1530] mb-1">{bot.name}</h3>
             <p className="text-xs text-[#5d566f] leading-relaxed">
               {bot.description || "Gửi tin nhắn bên dưới để bắt đầu cuộc trò chuyện với mô hình AI."}
@@ -189,11 +188,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                 msg.role === "user" ? "justify-end" : "justify-start"
               )}
             >
-              {msg.role === "assistant" && (
-                <div className="w-8 h-8 rounded-[12px] flex items-center justify-center flex-shrink-0 bg-[#f1edff] border border-[rgba(124,58,237,0.22)] shadow-xs">
-                  <Icon icon={bot.icon || "mdi:robot"} className="w-4 h-4 text-[#7c3aed]" />
-                </div>
-              )}
+              {msg.role === "assistant" && <BotAvatar bot={bot} size="md" />}
 
               <div
                 className={cn(
@@ -259,9 +254,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
 
         {isTyping && (
           <div className="flex space-x-3 min-w-0">
-            <div className="w-8 h-8 rounded-[12px] flex items-center justify-center flex-shrink-0 bg-[#f1edff] border border-[rgba(124,58,237,0.22)] shadow-xs">
-              <Icon icon={bot.icon || "mdi:robot"} className="w-4 h-4 text-[#7c3aed]" />
-            </div>
+            <BotAvatar bot={bot} size="md" />
             <div className="bg-[rgba(255,255,255,0.82)] border border-[rgba(76,29,149,0.12)] px-4 py-2.5 rounded-[18px] shadow-[0_12px_32px_-18px_rgba(76,29,149,0.22)]">
               <div className="typing-indicator">
                 <span></span>
