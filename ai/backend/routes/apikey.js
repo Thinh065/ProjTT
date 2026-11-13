@@ -2,6 +2,7 @@ const express = require("express");
 const ApiKey = require("../models/ApiKey");
 const { auth, requireAdmin } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
+const { getOpenRouterApiKey } = require("../utils/openrouter");
 
 const router = express.Router();
 
@@ -34,7 +35,12 @@ router.get(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const bots = await ApiKey.find().select("+apiKey").sort({ createdAt: 1 }).lean();
-    res.json(bots.map(({ apiKey, ...b }) => ({ ...b, apiKeyMasked: maskKey(apiKey) })));
+    res.json(bots.map(({ apiKey, ...bot }) => ({
+      ...bot,
+      apiKeyMasked: apiKey
+        ? maskKey(apiKey)
+        : getOpenRouterApiKey(bot.baseURL) ? "Key dùng chung (.env)" : "Chưa cấu hình",
+    })));
   })
 );
 
@@ -45,15 +51,21 @@ router.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const { name, apiKey, baseURL, model, image, referer, title, description } = req.body;
-    if (!name || !apiKey || !baseURL) {
-      return res.status(400).json({ message: "Thiếu tên, API key hoặc Base URL" });
+    if (!name || !baseURL) {
+      return res.status(400).json({ message: "Thiếu tên hoặc Base URL" });
     }
     if (!isHttpUrl(baseURL)) {
       return res.status(400).json({ message: "Base URL không hợp lệ" });
     }
+    const botApiKey = typeof apiKey === "string" ? apiKey.trim() : "";
+    if (!botApiKey && !getOpenRouterApiKey(baseURL)) {
+      return res.status(400).json({
+        message: "Nhập API Key riêng hoặc cấu hình OPENROUTER_API_KEY cho Base URL OpenRouter.",
+      });
+    }
     const bot = await ApiKey.create({
       name,
-      apiKey,
+      apiKey: botApiKey,
       baseURL,
       model,
       image,

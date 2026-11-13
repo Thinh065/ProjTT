@@ -1,0 +1,2 @@
+reportlab>=4,<5
+PyMuPDF>=2.1,<3

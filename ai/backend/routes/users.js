@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
@@ -13,6 +14,12 @@ const requireSelfOrAdmin = (req, res, next) => {
   if (req.user.id !== req.params.id && req.user.role !== "admin") {
     return res.status(403).json({ message: "Không có quyền" });
   }
+  next();
+};
+
+// Kiểm tra id trước khi upload, để không đẩy file lên Cloudinary với id rác
+const validId = (req, res, next) => {
+  if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ message: "ID không hợp lệ" });
   next();
 };
 
@@ -79,6 +86,7 @@ router.delete(
 router.post(
   "/:id/avatar",
   auth,
+  validId,
   requireSelfOrAdmin,
   uploadUserAvatar.single("avatar"),
   asyncHandler(async (req, res) => {

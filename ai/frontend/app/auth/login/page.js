@@ -1,15 +1,21 @@
 "use client"
-import { API_BACKEND } from "@/lib/api"
 
+import { apiFetch } from "@/lib/api"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
+import LightBackdrop from "@/components/landing/LightBackdrop"
+import SpotlightCard from "@/components/landing/react-bits/SpotlightCard"
+import StarBorder from "@/components/landing/react-bits/StarBorder"
+import ShinyText from "@/components/landing/react-bits/ShinyText"
+import ClickSpark from "@/components/landing/react-bits/ClickSpark"
+import CyberFox from "@/components/landing/CyberFox"
+import "@/components/landing/landing.css"
+import "@/components/landing/landing-light.css"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -20,29 +26,15 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const [ConfirmDialog, showConfirm] = useConfirmDialog()
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await fetch(`${API_BACKEND}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      })
-      const data = await res.json()
-      if (!res.ok) {
+      // Tài khoản bị khóa: backend trả 403 kèm thông báo, hiện ở nhánh !ok bên dưới
+      const { ok, data } = await apiFetch("/api/auth/login", { method: "POST", body: formData, auth: false })
+      if (!ok) {
         showConfirm({ message: data.message || "Tài khoản hoặc mật khẩu không đúng", onlyClose: true })
-        setLoading(false)
-        return
-      }
-      if (data.user.status === "blocked") {
-        showConfirm({
-          message: "Tài khoản đã tạm thời bị chặn!",
-          onlyClose: true,
-          onConfirm: () => {
-            router.push("/auth/login")
-          }
-        })
         setLoading(false)
         return
       }
@@ -64,92 +56,143 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-            <Icon icon="mdi:robot" className="w-6 h-6 text-white" />
-          </div>
-          <CardTitle className="text-2xl font-bold">Đăng nhập</CardTitle>
-          <CardDescription>Đăng nhập vào tài khoản Multi ChatBot AI của bạn</CardDescription>
-        </CardHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          {/* Trường username ẩn cho accessibility */}
-          <input
-            type="text"
-            name="username"
-            autoComplete="username"
-            style={{ display: "none" }}
-            tabIndex={-1}
-            aria-hidden="true"
-            value={formData.email || ""}
-            readOnly
-          />
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="your@email.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
+    <ClickSpark sparkColor={["#7c3aed", "#a78bfa", "#c4b5fd"]} sparkCount={7} sparkRadius={26} duration={400}>
+      <div className="relative min-h-screen flex items-center justify-center p-4 bg-transparent text-[#1d1530] overflow-hidden">
+        <LightBackdrop variant="trust" />
+
+        <div className="relative z-10 w-full max-w-md">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs text-[#7c3aed] hover:text-[#6d28d9] font-medium transition-colors mb-4"
+          >
+            ← Về trang chủ
+          </Link>
+
+          <SpotlightCard
+            theme="light"
+            spotlightColor="#7c3aed"
+            intensity={0.18}
+            spotlightSize={300}
+            borderGlow={0.88}
+            style={{
+              "--spotlight-card-surface": "rgba(255,255,255,.88)",
+              "--spotlight-card-border": "rgba(76,29,149,.12)",
+              "--spotlight-card-shadow": "0 12px 32px -18px rgba(76,29,149,.22)",
+              borderRadius: "18px",
+            }}
+            className="w-full p-6 sm:p-8 rounded-[18px] bg-[rgba(255,255,255,.88)] backdrop-blur-xl border border-[rgba(76,29,149,.12)] shadow-[0_12px_32px_-18px_rgba(76,29,149,.22)]"
+          >
+            <div className="text-center mb-6">
+              <div className="flex justify-center mb-3">
+                <CyberFox size={80} sleepy={false} label="Linh vật Cyber Fox" />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-[#1d1530]">
+                <ShinyText text="Đăng nhập ProjTT" color="#1d1530" shineColor="#7c3aed" speed={3} />
+              </h1>
+              <p className="text-xs text-[#5d566f] mt-1">Vào khung chat mọi mô hình AI trong một cửa sổ</p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mật khẩu</Label>
-              <div className="relative">
+
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                style={{ display: "none" }}
+                tabIndex={-1}
+                aria-hidden="true"
+                value={formData.email || ""}
+                readOnly
+              />
+
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="email" className="text-xs font-medium text-[#1d1530]">
+                  Email
+                </Label>
                 <Input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"} // <-- sửa dòng này
-                  placeholder="********"
-                  autoComplete="current-password"
-                  value={formData.password}
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={formData.email}
                   onChange={handleChange}
                   required
+                  className="bg-white border-[rgba(76,29,149,.18)] text-[#1d1530] placeholder:text-[#5d566f]/60 focus-visible:ring-[#7c3aed] focus-visible:border-[#7c3aed]"
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="password" className="text-xs font-medium text-[#1d1530]">
+                  Mật khẩu
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="bg-white border-[rgba(76,29,149,.18)] text-[#1d1530] placeholder:text-[#5d566f]/60 pr-10 focus-visible:ring-[#7c3aed] focus-visible:border-[#7c3aed]"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-0 top-0 h-full px-3 text-[#5d566f] hover:text-[#7c3aed] transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                  >
+                    <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <StarBorder
+                  as="button"
+                  type="submit"
+                  disabled={loading}
+                  className="w-full justify-center text-sm font-semibold"
+                  color="#f3e8ff"
+                  trailColor="#8b5cf6"
+                  backgroundColor="#7c3aed"
+                  textColor="#ffffff"
+                  borderColor="rgba(124, 58, 237, 0.35)"
+                  radius={10}
+                  thickness={1.5}
+                  stars={2}
+                  sparkle
                 >
-                  <Icon icon={showPassword ? "mdi:eye-off" : "mdi:eye"} className="h-4 w-4" />
-                </Button>
+                  {loading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Icon icon="mdi:loading" className="h-4 w-4 animate-spin" />
+                      Đang đăng nhập...
+                    </span>
+                  ) : (
+                    "Đăng nhập"
+                  )}
+                </StarBorder>
               </div>
-            </div>
-            <div className="text-sm text-muted-foreground">Demo: admin@demo.com / user@demo.com (mật khẩu bất kỳ)</div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? (
-                <>
-                  <Icon icon="mdi:loading" className="mr-2 h-4 w-4 animate-spin" />
-                  Đang đăng nhập...
-                </>
-              ) : (
-                "Đăng nhập"
-              )}
-            </Button>
-            <div className="text-center text-sm space-y-2">
-              <Link href="/auth/forgot-password" className="text-primary hover:underline">
-                Quên mật khẩu?
-              </Link>
-              <div>
-                Chưa có tài khoản?{" "}
-                <Link href="/auth/register" className="text-primary hover:underline">
-                  Đăng ký ngay
-                </Link>
+
+              <div className="text-center text-xs text-[#5d566f] pt-3 space-y-1.5">
+                <div>
+                  <Link href="/auth/forgot-password" className="text-[#7c3aed] hover:underline font-medium">
+                    Quên mật khẩu?
+                  </Link>
+                </div>
+                <div>
+                  Chưa có tài khoản?{" "}
+                  <Link href="/auth/register" className="text-[#7c3aed] font-medium hover:underline">
+                    Đăng ký ngay
+                  </Link>
+                </div>
               </div>
-            </div>
-          </CardFooter>
-        </form>
-      </Card>
-      {ConfirmDialog}
-    </div>
+            </form>
+          </SpotlightCard>
+        </div>
+
+        {ConfirmDialog}
+      </div>
+    </ClickSpark>
   )
 }

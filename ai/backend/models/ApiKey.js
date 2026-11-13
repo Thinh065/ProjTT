@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const apiKeySchema = new mongoose.Schema({
   name: { type: String, required: true }, // Tên AI
   description: { type: String, default: "" },
-  apiKey: { type: String, required: true, select: false }, // Không bao giờ trả về mặc định
+  apiKey: { type: String, default: "", select: false }, // Key riêng của bot, nếu có
   baseURL: { type: String, required: true },
   model: { type: String },
   image: { type: String },

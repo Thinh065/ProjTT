@@ -5,6 +5,7 @@ const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
 const { auth, requireAdmin } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
+const rateLimit = require("../utils/rateLimit");
 
 const router = express.Router();
 
@@ -18,11 +19,20 @@ const publicUser = (user) => ({
   createdAt: user.createdAt,
 });
 
+// Chống dò mật khẩu / tạo tài khoản hàng loạt theo IP
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Bạn đăng nhập sai quá nhiều lần, vui lòng thử lại sau 15 phút.",
+});
+const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
+
 const isEmail = (s) => typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
 // Đăng ký
 router.post(
   "/register",
+  registerLimiter,
   asyncHandler(async (req, res) => {
     const { name, password, avatar } = req.body;
     const email = (req.body.email || "").trim().toLowerCase();
@@ -59,6 +69,7 @@ router.post(
 // Đăng nhập
 router.post(
   "/login",
+  loginLimiter,
   asyncHandler(async (req, res) => {
     const email = (req.body.email || "").trim().toLowerCase();
     const { password } = req.body;
@@ -84,6 +95,11 @@ router.post(
     res.json({ token, user: publicUser(user) });
   })
 );
+
+// Thông tin tài khoản hiện tại (frontend dùng để kiểm tra token và làm mới quyền/avatar)
+router.get("/me", auth, (req, res) => {
+  res.json({ user: publicUser(req.user) });
+});
 
 // Danh sách user kèm tổng token và số cuộc trò chuyện (chỉ admin)
 router.get(
@@ -111,10 +127,5 @@ router.get(
     );
   })
 );
-
-// Kiểm tra token, trả về thông tin user hiện tại
-router.get("/verify", auth, (req, res) => {
-  res.json({ user: publicUser(req.user) });
-});
 
 module.exports = router;

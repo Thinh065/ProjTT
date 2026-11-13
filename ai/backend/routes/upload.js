@@ -1,17 +1,15 @@
 const express = require("express");
-const { uploadImage, uploadChatImage } = require("../middleware/cloudinary");
-const { auth } = require("../middleware/auth");
+const { uploadImage } = require("../middleware/cloudinary");
+const rateLimit = require("../utils/rateLimit");
 
 const router = express.Router();
 
 // Upload ảnh avatar lúc đăng ký (chưa có tài khoản nên không bắt đăng nhập)
 // hoặc ảnh đại diện cho bot. Giới hạn: chỉ ảnh, tối đa 5MB.
-router.post("/avatar", uploadImage.single("image"), (req, res) => {
-  if (!req.file?.path) return res.status(400).json({ message: "Không có file" });
-  res.json({ url: req.file.path });
-});
+// Route này không cần đăng nhập nên giới hạn theo IP để tránh bị lạm dụng làm kho ảnh
+const uploadLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20 });
 
-router.post("/chat-image", auth, uploadChatImage.single("image"), (req, res) => {
+router.post("/avatar", uploadLimiter, uploadImage.single("image"), (req, res) => {
   if (!req.file?.path) return res.status(400).json({ message: "Không có file" });
   res.json({ url: req.file.path });
 });
