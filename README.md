@@ -52,7 +52,11 @@ npm --prefix ai/frontend run dev
 
 ### Tạo tài khoản admin
 
-Đăng ký bình thường trên giao diện, rồi đổi `role` của tài khoản đó thành `"admin"` trong collection `users` (MongoDB Compass/Atlas). Từ đó admin có thể cấp quyền cho người khác trong trang **Quản trị hệ thống**.
+```bash
+npm --prefix ai/backend run create-admin -- admin@example.com
+```
+
+Script tạo admin với mật khẩu ngẫu nhiên (in ra một lần) đã mã hóa bcrypt; thêm mật khẩu sau email để tự đặt, thêm `--reset` để đặt lại mật khẩu cho email đã có. **Đừng tạo hoặc sửa mật khẩu trực tiếp trên MongoDB Atlas** — mật khẩu chữ thường sẽ không đăng nhập được. Sau đó admin có thể cấp quyền cho người khác trong trang **Quản trị hệ thống**.
 
 ## Kiểm thử
 

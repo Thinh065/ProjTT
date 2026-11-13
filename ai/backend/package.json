@@ -8,7 +8,8 @@
     "prepare:embeddings": "node scripts/prepareEmbeddings.js",
     "test:knowledge": "node --test test/eshBot.test.js",
     "test": "node --test test/eshBot.test.js test/api.test.js",
-    "dev:memory": "node scripts/devMemoryServer.js"
+    "dev:memory": "node scripts/devMemoryServer.js",
+    "create-admin": "node scripts/createAdmin.js"
   },
   "keywords": [],
   "author": "",
