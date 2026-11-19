@@ -18,9 +18,11 @@
 
 # Design inspection output
 .taste-skill/
+.impeccable/
 
-# Cấu hình công cụ Serena (Antigravity)
+# Cấu hình công cụ Serena / Agents (Antigravity)
 .serena/
+.agents/
 
 # Tệp cá nhân / ảnh chụp kiểm tra ở thư mục gốc (không thuộc mã nguồn)
 /*.png

@@ -6,7 +6,10 @@ const cors = require("cors");
 const app = express();
 app.disable("x-powered-by");
 // Chạy sau reverse proxy (Nginx, Render, Docker...) thì đặt TRUST_PROXY=1 để rate limit lấy đúng IP
-if (process.env.TRUST_PROXY) app.set("trust proxy", Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+const trustProxy = String(process.env.TRUST_PROXY || "").trim().toLowerCase();
+if (trustProxy && trustProxy !== "false") {
+  app.set("trust proxy", trustProxy === "true" ? true : /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy);
+}
 
 // CORS: chỉ cho phép các origin trong CORS_ORIGIN (phân tách bằng dấu phẩy)
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")

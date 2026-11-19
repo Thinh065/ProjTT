@@ -7,6 +7,7 @@ const userSchema = new mongoose.Schema({
   role: { type: String, default: "user" },
   status: { type: String, default: "active" },
   avatar: { type: String, default: "" },
+  resetRequestedAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now }
 })
 

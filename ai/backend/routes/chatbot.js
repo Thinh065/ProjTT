@@ -1,30 +1,19 @@
 const express = require("express");
-const ModelClient = require("@azure-rest/ai-inference").default;
-const { isUnexpected } = require("@azure-rest/ai-inference");
-const { AzureKeyCredential } = require("@azure/core-auth");
 const ApiKey = require("../models/ApiKey");
 const { auth } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
 const rateLimit = require("../utils/rateLimit");
-const { getOpenRouterApiKey, OPENROUTER_CHAT_URL } = require("../utils/openrouter");
+const { callBot, streamBot, UpstreamError } = require("../utils/chatProviders");
 const { callEshBot } = require("../utils/eshBot");
 
 const router = express.Router();
 
 const ESH_BOT_ID = "esh-bot";
-const REQUEST_TIMEOUT_MS = 60_000;
 const MAX_MESSAGES = 50;
 const MAX_CONTENT_LENGTH = 20_000;
 
 // Mỗi tài khoản tối đa 30 tin nhắn/phút (tránh đốt quota API)
-const chatLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, key: (req) => req.user.id });
-
-class UpstreamError extends Error {
-  constructor(message, status = 502) {
-    super(message);
-    this.status = status;
-  }
-}
+const chatLimiter = rateLimit({ name: "chat", windowMs: 60 * 1000, max: 30, key: (req) => req.user.id });
 
 // Chỉ giữ role/content hợp lệ, cắt bớt cho an toàn
 function sanitizeMessages(messages) {
@@ -37,102 +26,101 @@ function sanitizeMessages(messages) {
   return clean;
 }
 
-const tokensFromOpenAIUsage = (usage = {}) => {
-  const input = usage.prompt_tokens || 0;
-  const output = usage.completion_tokens || 0;
-  return { input, output, total: usage.total_tokens || input + output };
-};
-
-const upstreamErrorMessage = (data, fallback) =>
-  (typeof data?.error === "string" ? data.error : data?.error?.message) || data?.message || fallback;
-
-// GitHub Models (Azure AI Inference)
-async function callGithubModel(bot, messages) {
-  const client = ModelClient(bot.baseURL, new AzureKeyCredential(bot.apiKey));
-  const response = await client.path("/chat/completions").post({
-    body: { messages, model: bot.model },
-    timeout: REQUEST_TIMEOUT_MS,
-  });
-  if (isUnexpected(response)) {
-    throw new UpstreamError(upstreamErrorMessage(response.body, "Lỗi từ GitHub Models"), 502);
+// Kiểm tra request; trả về { messages, bot } hoặc tự gửi lỗi 4xx và trả null
+async function prepare(req, res) {
+  const botId = typeof req.body.botId === "string" ? req.body.botId : "";
+  const messages = sanitizeMessages(req.body.messages);
+  if (!botId) {
+    res.status(400).json({ message: "Thiếu botId" });
+    return null;
   }
-  return {
-    message: response.body.choices?.[0]?.message?.content || "",
-    tokens: tokensFromOpenAIUsage(response.body.usage),
-  };
+  if (!messages) {
+    res.status(400).json({ message: "messages phải là mảng và kết thúc bằng tin nhắn của user" });
+    return null;
+  }
+  if (botId === ESH_BOT_ID) return { messages, bot: null };
+  const bot = await ApiKey.findById(botId).select("+apiKey").lean();
+  if (!bot || (bot.hidden && req.user.role !== "admin")) {
+    res.status(404).json({ message: "Không tìm thấy ChatBot" });
+    return null;
+  }
+  return { messages, bot };
 }
 
-// Bất kỳ API tương thích OpenAI (OpenRouter, OpenAI, Gemini OpenAI-compatible, ...)
-async function callOpenAICompatible(bot, messages) {
-  const configuredKey = bot.apiKey?.trim();
-  const sharedKey = configuredKey ? "" : getOpenRouterApiKey(bot.baseURL);
-  if (!configuredKey && !sharedKey) {
-    throw new UpstreamError("ChatBot chưa có API key.", 503);
+// Lỗi trả cho người dùng: lỗi có chủ đích (upstream, bot ESH thiếu cấu hình, Gemini quá tải), hết giờ
+function publicError(err) {
+  if (err instanceof UpstreamError || [429, 502, 503].includes(err.status)) {
+    return { status: err.status, message: err.message };
   }
-  const baseURL = bot.baseURL.trim().replace(/\/$/, "");
-  const endpoint = baseURL.endsWith("/chat/completions") ? baseURL : `${baseURL}/chat/completions`;
-
-  const response = await fetch(sharedKey ? OPENROUTER_CHAT_URL : endpoint, {
-    method: "POST",
-    ...(sharedKey && { redirect: "error" }),
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${configuredKey || sharedKey}`,
-      ...(bot.referer && { "HTTP-Referer": bot.referer }),
-      ...(bot.title && { "X-Title": bot.title }),
-    },
-    body: JSON.stringify({ model: bot.model, messages }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const status = response.status === 429 ? 429 : 502;
-    throw new UpstreamError(upstreamErrorMessage(data, `Lỗi từ API (${response.status})`), status);
+  if (err.name === "TimeoutError" || err.name === "AbortError") {
+    return { status: 504, message: "AI phản hồi quá lâu, vui lòng thử lại" };
   }
-  return {
-    message: data.choices?.[0]?.message?.content || "",
-    tokens: tokensFromOpenAIUsage(data.usage),
-  };
+  return null;
 }
 
-// Gửi tin nhắn tới một ChatBot. Client chỉ gửi botId, server tự lấy apiKey/baseURL/model từ DB.
+// Gửi tin nhắn, nhận nguyên câu trả lời. Client chỉ gửi botId, server tự lấy key/model từ DB.
 router.post(
   "/dynamic",
   auth,
   chatLimiter,
   asyncHandler(async (req, res) => {
-    const { botId } = req.body;
-    const messages = sanitizeMessages(req.body.messages);
-    if (!botId) return res.status(400).json({ message: "Thiếu botId" });
-    if (!messages) {
-      return res.status(400).json({ message: "messages phải là mảng và kết thúc bằng tin nhắn của user" });
-    }
-
+    const input = await prepare(req, res);
+    if (!input) return;
     try {
-      let result;
-      if (botId === ESH_BOT_ID) {
-        result = await callEshBot(messages, req.user.id);
-      } else {
-        const bot = await ApiKey.findById(botId).select("+apiKey").lean();
-        if (!bot || (bot.hidden && req.user.role !== "admin")) {
-          return res.status(404).json({ message: "Không tìm thấy ChatBot" });
-        }
-        const isGithub = /models\.github\.ai|models\.inference\.ai\.azure\.com/.test(bot.baseURL);
-        result = isGithub
-          ? await callGithubModel(bot, messages)
-          : await callOpenAICompatible(bot, messages);
-      }
+      const result = input.bot
+        ? await callBot(input.bot, input.messages)
+        : await callEshBot(input.messages, req.user.id);
       res.json(result);
     } catch (err) {
-      // Lỗi có chủ đích từ upstream hoặc bot ESH (thiếu cấu hình, Gemini quá tải...)
-      if (err instanceof UpstreamError || [429, 502, 503].includes(err.status)) {
-        return res.status(err.status).json({ message: err.message });
+      const known = publicError(err);
+      if (!known) throw err;
+      res.status(known.status).json({ message: known.message });
+    }
+  })
+);
+
+// Như /dynamic nhưng trả dần từng đoạn chữ (Server-Sent Events):
+//   data: {"type":"delta","text":"..."}            nhiều lần
+//   data: {"type":"done","message":...,"tokens":...,"sourceChunks":[...]}
+//   data: {"type":"error","status":502,"message":"..."}
+router.post(
+  "/stream",
+  auth,
+  chatLimiter,
+  asyncHandler(async (req, res) => {
+    const input = await prepare(req, res);
+    if (!input) return;
+
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no", // tắt gom buffer ở reverse proxy
+    });
+    const send = (event) => {
+      if (!res.writableEnded) res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    // Người dùng đóng tab / bấm dừng: hủy luôn request tới AI
+    const controller = new AbortController();
+    res.on("close", () => controller.abort());
+    // Giữ kết nối khi bot ESH hoặc model chậm chưa trả chữ nào
+    const heartbeat = setInterval(() => !res.writableEnded && res.write(": ping\n\n"), 15_000);
+
+    try {
+      const result = input.bot
+        ? await streamBot(input.bot, input.messages, (text) => send({ type: "delta", text }), { signal: controller.signal })
+        : await callEshBot(input.messages, req.user.id);
+      if (!input.bot) send({ type: "delta", text: result.message });
+      send({ type: "done", ...result });
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        const known = publicError(err);
+        if (!known) console.error("Chat stream error:", err);
+        send({ type: "error", status: known?.status || 500, message: known?.message || "Lỗi server" });
       }
-      if (err.name === "TimeoutError" || err.name === "AbortError") {
-        return res.status(504).json({ message: "AI phản hồi quá lâu, vui lòng thử lại" });
-      }
-      throw err;
+    } finally {
+      clearInterval(heartbeat);
+      res.end();
     }
   })
 );

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
-const { chunkMarkdown } = require("../models/KnowledgeChunk");
+const { chunkMarkdown } = require("./chunkMarkdown");
 const { embedTexts, cosineSimilarity, EMBEDDING_MODEL } = require("./localEmbeddings");
 
 const DOCS_DIR = path.resolve(process.env.CHUNKS_DIR || process.env.DOCS_DIR || path.join(__dirname, "../knowledgeBase/chunks"));

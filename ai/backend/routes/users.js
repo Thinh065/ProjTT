@@ -127,6 +127,7 @@ router.post(
     }
 
     user.password = await bcrypt.hash(String(newPassword), 10);
+    user.resetRequestedAt = null;
     await user.save();
     res.json({ message: "Đổi mật khẩu thành công" });
   })

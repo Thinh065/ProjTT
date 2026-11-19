@@ -46,14 +46,22 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 ## Việc còn mở
 
 1. ~~Đồng bộ dashboard với tông sáng~~ — đã chạy thử khi đăng nhập (2026-11-13): dashboard, lịch sử, quản trị, hồ sơ hiển thị đúng, không lỗi console.
-2. Thiếu `favicon.ico` (đã có `app/icon.svg`); nút "Đăng nhập" (StarBorder) vẫn tông tối trên nền sáng.
+2. ~~Thiếu `favicon.ico` (đã có `app/icon.svg`); nút "Đăng nhập" (StarBorder) vẫn tông tối trên nền sáng.~~ — đã tạo `public/favicon.ico`, nút "Đăng nhập" trên thanh điều hướng đã chuyển sang tông sáng lavender (`lp-cta-button`).
 3. **Xoay vòng các API key cũ từng lộ trong lịch sử git; đổi `JWT_SECRET` thật trong `ai/backend/.env`** (backend giờ cảnh báo nếu < 32 ký tự và từ chối chạy ở `NODE_ENV=production`).
 4. Gộp `landing-light.css` vào `landing.css` (bỏ các màu tối viết cứng và `!important`) — cần chụp so sánh từng phần.
 5. ~~Chọn trình quản lý gói~~ — đã chọn **npm**: commit `package-lock.json`, bỏ `yarn.lock`; Dockerfile dùng `npm ci`.
 6. `next.config.mjs` vẫn bỏ qua ESLint khi build vì dự án chưa cài ESLint.
-7. `npm audit` còn: `cloudinary` v1 (cần v2, nhưng `multer-storage-cloudinary` chỉ hỗ trợ v1 → phải tự viết upload stream); `sharp`/`protobufjs` cũ kéo theo từ `chromadb-default-embed` (chỉ dùng cho đồng bộ Chroma tùy chọn). Dockerfile/docker-compose chưa chạy thử (máy không có Docker).
+7. Đã nâng `cloudinary` lên SDK v2 (`upload_stream` trực tiếp) và gỡ bỏ các gói `chromadb` / `chromadb-default-embed` / `@huggingface/inference` / `@azure-rest/ai-inference` không còn dùng; chỉ còn lưu ý Dockerfile/docker-compose chưa chạy thử trực tiếp trên máy chưa cài Docker.
 
 ## Nhật ký
+
+- **2026-11-20** — Hoàn thiện luồng quên mật khẩu, dọn git worktree và cấu hình GitHub Actions CI:
+  - **Backend & Test:** Thêm `resetRequestedAt` trong `models/User.js`, endpoint `POST /api/auth/forgot-password` có rate-limit riêng (`routes/auth.js`), tự động xóa cờ `resetRequestedAt` khi đăng nhập hoặc đổi/đặt lại mật khẩu (`routes/users.js`), bổ sung test tích hợp trong `test/api.test.js` (28/28 pass).
+  - **Frontend & Hạ tầng:** Bổ sung form gửi yêu cầu cấp mật khẩu tạm tại `app/auth/forgot-password/page.js`, hiển thị nhãn **Cần cấp lại MK** bấm trực tiếp để mở modal đặt lại mật khẩu tại `app/dashboard/admin/page.js`, cập nhật `.gitignore` chặn `.agents/` và `.impeccable/`, thêm workflow `.github/workflows/ci.yml`.
+
+- **2026-11-18** — Hoàn thiện hệ thống chat streaming, quản trị ChatBot, bảo mật hạ tầng và tài liệu:
+  - **Backend & Hạ tầng:** Hỗ trợ streaming SSE (`POST /api/chatbot/stream`, `utils/chatProviders.js`), sửa và kiểm tra sức khỏe ChatBot (`PATCH /api/apikeys/:id`, `POST /api/apikeys/check`, `POST /api/apikeys/:id/check`, trường `health` trong `ApiKey`), nâng `cloudinary` lên SDK v2 dùng `upload_stream` trực tiếp (`middleware/cloudinary.js`), lưu bộ đếm rate limit trong MongoDB TTL (`utils/rateLimit.js`), tách `utils/chunkMarkdown.js` và gỡ các gói Chroma/HF/Azure thừa.
+  - **Frontend & Tài liệu:** Khung chat nhận stream trực tiếp kèm nút Dừng (`ChatInterface.js`, `lib/api.js`), hoàn thiện giao diện Admin sửa/kiểm tra sức khỏe ChatBot và modal đặt lại mật khẩu (`app/dashboard/admin/page.js`), đồng bộ hiển thị code block và xuất nguồn JSON ở Lịch sử (`app/dashboard/history/page.js`), thêm `public/favicon.ico`, cập nhật `README.md`.
 
 - **2026-11-14 · Claude (avatar bot theo hãng)** — `components/chat/BotAvatar.js`: avatar bot = ảnh riêng (`image`) → logo hãng đoán từ `model`/tên (Simple Icons qua Iconify: NVIDIA, Baidu, Gemini, OpenAI, Claude, Meta, Mistral, DeepSeek, Qwen, Microsoft, Perplexity, Hugging Face) → robot mặc định. Bot có `icon` riêng (Tư vấn ESH) giữ nguyên. Dùng ở `BotSelector`, `ChatInterface` (màn trống, tin nhắn, đang gõ) và bảng ChatBot trang quản trị. Thêm hãng mới: thêm một dòng vào `BRANDS`.
 

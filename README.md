@@ -82,7 +82,7 @@ docker compose up --build
 
 - API key của ChatBot chỉ nằm ở server; trình duyệt chỉ gửi `botId`. Key dùng chung cho OpenRouter đặt ở `OPENROUTER_API_KEY`.
 - Mọi API trừ đăng ký/đăng nhập/upload ảnh đăng ký đều cần JWT; tài khoản bị khóa bị chặn ngay cả khi token còn hạn.
-- Giới hạn tần suất: đăng nhập 20 lần/15 phút/IP, đăng ký 10 lần/giờ/IP, upload ảnh không đăng nhập 20 lần/giờ/IP, chat 30 tin/phút/tài khoản (bộ nhớ trong process — chạy nhiều instance thì cần Redis).
+- Giới hạn tần suất: đăng nhập 20 lần/15 phút/IP, đăng ký 10 lần/giờ/IP, upload ảnh không đăng nhập 20 lần/giờ/IP, chat 30 tin/phút/tài khoản (bộ đếm lưu trong MongoDB — collection `ratelimits` tự xóa bằng TTL index nên hoạt động đúng cả khi khởi động lại hoặc chạy nhiều instance; tự chuyển sang bộ nhớ tạm nếu chưa kết nối DB).
 - **Các key cũ từng nằm trong lịch sử git (`ai/backend/.env.example` ở các commit cũ) phải được thu hồi/tạo lại** ở GitHub, OpenRouter, Gemini, Cloudinary, Hugging Face, Chroma và MongoDB Atlas.
 
 ## Cấu trúc API
@@ -90,11 +90,12 @@ docker compose up --build
 | Route | Mô tả |
 |---|---|
 | `POST /api/auth/register`, `POST /api/auth/login` | Đăng ký, đăng nhập (trả JWT 7 ngày) |
+| `POST /api/auth/forgot-password` | Gửi yêu cầu cấp lại mật khẩu tạm (đánh dấu cho admin xử lý) |
 | `GET /api/auth/me` | Tài khoản hiện tại |
 | `GET /api/auth/users` | (admin) Danh sách user kèm tổng token |
-| `PATCH/DELETE /api/users/:id…` | Đổi tên, mật khẩu, avatar; admin đổi quyền/khóa/xóa |
-| `GET/POST/PATCH/DELETE /api/apikeys…` | Danh sách ChatBot; admin thêm/ẩn/xóa |
-| `POST /api/chatbot/dynamic` | Gửi tin nhắn tới một ChatBot (`botId: "esh-bot"` là bot tư vấn ESH) |
+| `POST/PATCH/DELETE /api/users/:id…` | Đổi tên, mật khẩu, avatar; admin đổi quyền/khóa/xóa |
+| `GET/POST/PATCH/DELETE /api/apikeys…` | Danh sách ChatBot; admin thêm, sửa, ẩn/hiện, xóa và kiểm tra kết nối (`POST /api/apikeys/check`, `POST /api/apikeys/:id/check`) |
+| `POST /api/chatbot/dynamic`, `POST /api/chatbot/stream` | Gửi tin nhắn tới một ChatBot (trả nguyên câu hoặc trả dần qua Server-Sent Events; `botId: "esh-bot"` là bot tư vấn ESH) |
 | `GET/POST/PUT/DELETE /api/chat/history…` | Lịch sử chat của mình; admin xem của người khác qua `?userId=` |
 | `POST /api/upload/avatar` | Upload ảnh (đăng ký, ảnh bot) lên Cloudinary |
 | `GET /health` | Tình trạng server và kết nối MongoDB |

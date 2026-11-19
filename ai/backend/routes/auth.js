@@ -21,11 +21,18 @@ const publicUser = (user) => ({
 
 // Chống dò mật khẩu / tạo tài khoản hàng loạt theo IP
 const loginLimiter = rateLimit({
+  name: "login",
   windowMs: 15 * 60 * 1000,
   max: 20,
   message: "Bạn đăng nhập sai quá nhiều lần, vui lòng thử lại sau 15 phút.",
 });
-const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10 });
+const registerLimiter = rateLimit({ name: "register", windowMs: 60 * 60 * 1000, max: 10 });
+const forgotLimiter = rateLimit({
+  name: "forgot",
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: "Bạn gửi yêu cầu quá nhiều lần, vui lòng thử lại sau 15 phút.",
+});
 
 const isEmail = (s) => typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 
@@ -88,11 +95,36 @@ router.post(
       return res.status(403).json({ message: "Tài khoản đã bị khóa" });
     }
 
+    if (user.resetRequestedAt) {
+      await User.updateOne({ _id: user._id }, { $set: { resetRequestedAt: null } });
+    }
+
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
     res.json({ token, user: publicUser(user) });
+  })
+);
+
+// Yêu cầu cấp lại mật khẩu (đánh dấu cho quản trị viên xử lý, không lộ email đã đăng ký hay chưa)
+router.post(
+  "/forgot-password",
+  forgotLimiter,
+  asyncHandler(async (req, res) => {
+    const email = (req.body.email || "").trim().toLowerCase();
+    if (!isEmail(email)) {
+      return res.status(400).json({ message: "Vui lòng nhập địa chỉ email hợp lệ" });
+    }
+
+    await User.findOneAndUpdate(
+      { email, status: { $ne: "blocked" } },
+      { $set: { resetRequestedAt: new Date() } }
+    ).collation({ locale: "en", strength: 2 });
+
+    res.json({
+      message: "Đã gửi yêu cầu tới quản trị viên. Vui lòng liên hệ quản trị viên để nhận mật khẩu tạm.",
+    });
   })
 );
 

@@ -45,9 +45,9 @@ test.before(async () => {
 });
 
 test.after(async () => {
-  await new Promise((resolve) => server.close(resolve));
+  if (server) await new Promise((resolve) => server.close(resolve));
   await mongoose.disconnect();
-  await mongo.stop();
+  if (mongo) await mongo.stop();
 });
 
 let alice;
@@ -110,6 +110,23 @@ test("change-password requires the current password for self", async () => {
   assert.equal(ok.status, 200);
   const login = await api("/api/auth/login", { method: "POST", body: { email: "bob@example.com", password: "newpass1" } });
   assert.equal(login.status, 200);
+
+  // Luồng quên mật khẩu: đánh dấu resetRequestedAt cho admin mà không tiết lộ email tồn tại hay không
+  assert.equal((await api("/api/auth/forgot-password", { method: "POST", body: { email: "not-an-email" } })).status, 400);
+  const ghostForgot = await api("/api/auth/forgot-password", { method: "POST", body: { email: "ghost@example.com" } });
+  const bobForgot = await api("/api/auth/forgot-password", { method: "POST", body: { email: "BOB@example.com" } });
+  assert.equal(ghostForgot.status, 200);
+  assert.equal(bobForgot.status, 200);
+  assert.equal(ghostForgot.data.message, bobForgot.data.message);
+
+  const usersBefore = await api("/api/auth/users", { token: admin.token });
+  assert.ok(usersBefore.data.find((u) => u._id === bob.id)?.resetRequestedAt);
+
+  // Admin đặt lại mật khẩu tạm sẽ tự động xóa cờ resetRequestedAt
+  const adminReset = await api(`/api/users/${bob.id}/change-password`, { method: "POST", token: admin.token, body: { newPassword: "newpass1" } });
+  assert.equal(adminReset.status, 200);
+  const usersAfter = await api("/api/auth/users", { token: admin.token });
+  assert.equal(usersAfter.data.find((u) => u._id === bob.id)?.resetRequestedAt, null);
 });
 
 test("chat history is private to its owner and visible to admins", async () => {
@@ -222,4 +239,104 @@ test("login is rate limited per IP", async () => {
     last = await api("/api/auth/login", { method: "POST", body: { email: "ghost@example.com", password: "nope123" } });
   }
   assert.equal(last.status, 429);
+  assert.ok((await mongoose.connection.db.collection("ratelimits").countDocuments()) > 0, "bộ đếm lưu trong MongoDB");
+  await mongoose.connection.db.collection("ratelimits").deleteMany({}); // trả lượt cho các test sau
+});
+
+// ---- ChatBot: sửa, kiểm tra, stream — gọi tới một server giả lập API tương thích OpenAI ----
+const http = require("node:http");
+
+function startFakeUpstream() {
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      const { model, stream } = JSON.parse(body || "{}");
+      if (model === "dead-model") {
+        res.writeHead(404, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ error: { message: "dead-model is no longer available" } }));
+      }
+      const usage = { prompt_tokens: 3, completion_tokens: 2, total_tokens: 5 };
+      if (!stream) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ choices: [{ message: { content: "Xin chào" } }], usage }));
+      }
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      res.write(": OPENROUTER PROCESSING\n\n");
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: "Xin" } }] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: " chào" } }] })}\n\n`);
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: {} }], usage })}\n\n`);
+      res.end("data: [DONE]\n\n");
+    });
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server)));
+}
+
+test("admins can edit a bot, check its health, and users can stream answers from it", async () => {
+  const owner = await registerAndLogin("Owner", "owner@example.com");
+  await User.updateOne({ _id: owner.id }, { role: "admin" });
+  const user = await registerAndLogin("Reader", "reader@example.com");
+  const upstream = await startFakeUpstream();
+  const baseURL = `http://127.0.0.1:${upstream.address().port}/v1`;
+  try {
+    const created = await api("/api/apikeys", { method: "POST", token: owner.token, body: { name: "Fake", baseURL, apiKey: "sk-fake-123456789", model: "dead-model" } });
+    assert.equal(created.status, 201);
+    const id = created.data._id;
+
+    // Kiểm tra: model hỏng
+    const bad = await api(`/api/apikeys/${id}/check`, { method: "POST", token: owner.token });
+    assert.equal(bad.data.health.ok, false);
+    assert.match(bad.data.health.error, /no longer available/);
+
+    // Sửa model; key cũ được giữ khi để trống, không lộ ra ngoài
+    assert.equal((await api(`/api/apikeys/${id}`, { method: "PATCH", token: user.token, body: { model: "good" } })).status, 403);
+    const edited = await api(`/api/apikeys/${id}`, { method: "PATCH", token: owner.token, body: { model: "good", name: "Fake 2", apiKey: "" } });
+    assert.equal(edited.status, 200);
+    assert.equal(edited.data.name, "Fake 2");
+    assert.equal(edited.data.apiKey, undefined);
+    assert.equal(edited.data.apiKeyMasked, "sk-f…6789");
+    assert.equal(edited.data.health, undefined); // kết quả kiểm tra cũ bị xóa khi đổi cấu hình
+
+    const all = await api("/api/apikeys/check", { method: "POST", token: owner.token });
+    assert.equal(all.data.find((b) => b._id === id).health.ok, true);
+    const adminList = await api("/api/apikeys/admin", { token: owner.token });
+    assert.equal(adminList.data.find((b) => b._id === id).health.ok, true);
+    const userList = await api("/api/apikeys", { token: user.token });
+    assert.equal(userList.data.find((b) => b._id === id).health, undefined);
+
+    // Gọi thường
+    const plain = await api("/api/chatbot/dynamic", { method: "POST", token: user.token, body: { botId: id, messages: [{ role: "user", content: "hi" }] } });
+    assert.equal(plain.data.message, "Xin chào");
+    assert.equal(plain.data.tokens.total, 5);
+
+    // Stream
+    const res = await fetch(`${base}/api/chatbot/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.token}` },
+      body: JSON.stringify({ botId: id, messages: [{ role: "user", content: "hi" }] }),
+    });
+    assert.match(res.headers.get("content-type"), /event-stream/);
+    const events = (await res.text()).split("\n").filter((l) => l.startsWith("data: ")).map((l) => JSON.parse(l.slice(6)));
+    assert.deepEqual(events.filter((e) => e.type === "delta").map((e) => e.text), ["Xin", " chào"]);
+    const done = events.at(-1);
+    assert.equal(done.type, "done");
+    assert.equal(done.message, "Xin chào");
+    assert.deepEqual(done.tokens, { input: 3, output: 2, total: 5 });
+
+    // Stream lỗi: trả sự kiện error thay vì làm treo kết nối
+    await api(`/api/apikeys/${id}`, { method: "PATCH", token: owner.token, body: { model: "dead-model" } });
+    const failed = await fetch(`${base}/api/chatbot/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${user.token}` },
+      body: JSON.stringify({ botId: id, messages: [{ role: "user", content: "hi" }] }),
+    });
+    const last = (await failed.text()).split("\n").filter((l) => l.startsWith("data: ")).map((l) => JSON.parse(l.slice(6))).at(-1);
+    assert.equal(last.type, "error");
+    assert.match(last.message, /no longer available/);
+
+    // Thiếu botId: lỗi 400 thường (chưa mở stream)
+    assert.equal((await api("/api/chatbot/stream", { method: "POST", token: user.token, body: { messages: [] } })).status, 400);
+  } finally {
+    upstream.close();
+  }
 });

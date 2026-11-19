@@ -11,6 +11,13 @@ const apiKeySchema = new mongoose.Schema({
   title: { type: String, default: "" }, // X-Title (OpenRouter)
   createdAt: { type: Date, default: Date.now },
   hidden: { type: Boolean, default: false },
+  // Kết quả lần "Kiểm tra" gần nhất trong trang quản trị
+  health: {
+    ok: Boolean,
+    checkedAt: Date,
+    latencyMs: Number,
+    error: String,
+  },
 });
 
 module.exports = mongoose.model("ApiKey", apiKeySchema);

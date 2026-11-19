@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "fix/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-test:
+    name: Backend Tests (API & ESH RAG)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ai/backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm --prefix ai/backend ci
+      - name: Run test suite
+        run: npm --prefix ai/backend test
+
+  frontend-build:
+    name: Frontend Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ai/frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm --prefix ai/frontend ci
+      - name: Build Next.js application
+        run: npm --prefix ai/frontend run build

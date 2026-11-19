@@ -26,7 +26,6 @@ Phiên bản tài liệu, prompt và model nằm trong khóa cache. Thay đổi 
 
 Tên tài liệu và số trang không lặp lại trong nội dung trả lời; giao diện hiện chúng ở mục **Nguồn thông tin** dưới mỗi câu trả lời. Gemini phải trích nguyên văn từ trang nguồn (cho phép khác biệt định dạng như Markdown, kiểu ngoặc kép, dấu "…" rút gọn); trích sai chữ thì câu trả lời bị từ chối.
 
-Đồng bộ Chroma Cloud chỉ chạy khi chủ động đặt `CHROMA_SYNC_ON_START=true`. Bot School dùng knowledge base local và không cần đồng bộ Chroma.
 
 Kiểm tra quy tắc nguồn và cache local.
 

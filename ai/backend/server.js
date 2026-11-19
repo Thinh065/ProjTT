@@ -35,10 +35,4 @@ app.listen(PORT, () => {
   require("./utils/localKnowledge").getKnowledgeIndex()
     .then((index) => console.log(`Local ESH knowledge ready: ${index.documentCount} documents, ${index.chunks.length} chunks`))
     .catch((err) => console.error("Local ESH knowledge unavailable:", err.message));
-  if (process.env.CHROMA_SYNC_ON_START === "true" && process.env.CHROMA_API_KEY) {
-    const { extractAndSaveMdFiles } = require("./models/KnowledgeChunk");
-    extractAndSaveMdFiles()
-      .then(() => console.log("Knowledge extraction completed"))
-      .catch((err) => console.error("Knowledge extraction error:", err.message));
-  }
 });
