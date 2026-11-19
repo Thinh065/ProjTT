@@ -23,7 +23,6 @@ import Counter from "@/components/landing/react-bits/Counter"
 import BlurText from "@/components/landing/react-bits/BlurText"
 import TechText from "@/components/landing/react-bits/TechText"
 import "@/components/landing/landing.css"
-import "@/components/landing/landing-light.css"
 import LightBackdrop from "@/components/landing/LightBackdrop"
 
 const bricolage = Bricolage_Grotesque({

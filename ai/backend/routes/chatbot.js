@@ -1,10 +1,12 @@
 const express = require("express");
 const ApiKey = require("../models/ApiKey");
-const { auth } = require("../middleware/auth");
+const AnswerCache = require("../models/EshAnswerCache");
+const { auth, requireAdmin } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
 const rateLimit = require("../utils/rateLimit");
 const { callBot, streamBot, UpstreamError } = require("../utils/chatProviders");
 const { callEshBot } = require("../utils/eshBot");
+const { getKnowledgeSummary } = require("../utils/localKnowledge");
 
 const router = express.Router();
 
@@ -122,6 +124,33 @@ router.post(
       clearInterval(heartbeat);
       res.end();
     }
+  })
+);
+
+// Thống kê cơ sở tri thức RAG & bộ nhớ đệm câu trả lời của bot ESH (chỉ admin)
+router.get(
+  "/esh-knowledge",
+  auth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const summary = getKnowledgeSummary();
+    const cachedAnswers = await AnswerCache.countDocuments();
+    res.json({ ...summary, cachedAnswers });
+  })
+);
+
+// Xóa bộ nhớ đệm câu trả lời của bot ESH (chỉ admin)
+router.post(
+  "/esh-cache/clear",
+  auth,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { deletedCount } = await AnswerCache.deleteMany({});
+    res.json({
+      message: `Đã xóa ${deletedCount || 0} câu trả lời trong bộ nhớ đệm ESH.`,
+      deletedCount: deletedCount || 0,
+      cachedAnswers: 0,
+    });
   })
 );
 

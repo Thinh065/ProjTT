@@ -32,8 +32,7 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 
 - `page.js` đặt `data-theme="light"` lên `.lp` và render **một** `<LightBackdrop variant="converge"/>` (lớp `position: fixed`, `z-index: -1`, Particles tải động bằng `next/dynamic`).
 - Trang đăng nhập/đăng ký/quên mật khẩu dùng `<LightBackdrop variant="trust"/>` (DotGrid + vầng tím đầu trang). `LightBackdrop.js` chỉ còn 2 biến thể này.
-- Toàn bộ màu sáng nằm trong `landing-light.css`, **luôn có tiền tố `.lp[data-theme="light"]`**. Nhiều chỗ phải dùng `!important` vì `landing.css` vẫn còn màu nền tối và chữ trắng viết cứng từ thời bản tối (chưa gộp — xem Việc còn mở).
-  - Thêm khối mới có nền/chữ tối viết cứng? → thêm class đó vào danh sách `:is(...)` "Bề mặt" hoặc "Chữ" trong `landing-light.css`.
+- Toàn bộ màu sáng đã được gộp thẳng vào `landing.css` (đã xóa file `landing-light.css` và các quy tắc `!important` đè màu tối cũ).
 
 ## Bẫy đã gặp (đừng lặp lại)
 
@@ -47,17 +46,17 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 
 1. ~~Đồng bộ dashboard với tông sáng~~ — đã chạy thử khi đăng nhập (2026-11-13): dashboard, lịch sử, quản trị, hồ sơ hiển thị đúng, không lỗi console.
 2. ~~Thiếu `favicon.ico` (đã có `app/icon.svg`); nút "Đăng nhập" (StarBorder) vẫn tông tối trên nền sáng.~~ — đã tạo `public/favicon.ico`, nút "Đăng nhập" trên thanh điều hướng đã chuyển sang tông sáng lavender (`lp-cta-button`).
-3. **Xoay vòng các API key cũ từng lộ trong lịch sử git; đổi `JWT_SECRET` thật trong `ai/backend/.env`** (backend giờ cảnh báo nếu < 32 ký tự và từ chối chạy ở `NODE_ENV=production`).
-4. Gộp `landing-light.css` vào `landing.css` (bỏ các màu tối viết cứng và `!important`) — cần chụp so sánh từng phần.
+3. ~~Xoay vòng `JWT_SECRET` thật trong `ai/backend/.env`~~ — đã xoay `JWT_SECRET` 96 ký tự hex ngẫu nhiên (`crypto.randomBytes(48)`). Chỉ còn lưu ý tự đổi các API key cloud cũ nếu chưa thu hồi trên dashboard của hãng.
+4. ~~Gộp `landing-light.css` vào `landing.css` (bỏ các màu tối viết cứng và `!important`)~~ — đã gộp thẳng bảng màu sáng vào `.lp` trong `landing.css` và gỡ bỏ `landing-light.css`.
 5. ~~Chọn trình quản lý gói~~ — đã chọn **npm**: commit `package-lock.json`, bỏ `yarn.lock`; Dockerfile dùng `npm ci`.
-6. `next.config.mjs` vẫn bỏ qua ESLint khi build vì dự án chưa cài ESLint.
-7. Đã nâng `cloudinary` lên SDK v2 (`upload_stream` trực tiếp) và gỡ bỏ các gói `chromadb` / `chromadb-default-embed` / `@huggingface/inference` / `@azure-rest/ai-inference` không còn dùng; chỉ còn lưu ý Dockerfile/docker-compose chưa chạy thử trực tiếp trên máy chưa cài Docker.
+6. ~~`npm run lint` ở frontend~~ — đã trỏ `"lint": "tsc --noEmit"` trong `ai/frontend/package.json` để kiểm tra tĩnh TypeScript/JSX không cần cài thêm bộ gói ESLint cũ.
+7. Đã nâng `cloudinary` lên SDK v2 (`upload_stream` trực tiếp) và gỡ bỏ các gói `chromadb` / `chromadb-default-embed` / `@huggingface/inference` / `@azure-rest/ai-inference` không còn dùng; bổ sung bảng quản trị Cơ sở tri thức & Bộ nhớ đệm Bot ESH (`GET /api/chatbot/esh-knowledge`, `POST /api/chatbot/esh-cache/clear`).
 
 ## Nhật ký
 
-- **2026-11-20** — Hoàn thiện luồng quên mật khẩu, dọn git worktree và cấu hình GitHub Actions CI:
-  - **Backend & Test:** Thêm `resetRequestedAt` trong `models/User.js`, endpoint `POST /api/auth/forgot-password` có rate-limit riêng (`routes/auth.js`), tự động xóa cờ `resetRequestedAt` khi đăng nhập hoặc đổi/đặt lại mật khẩu (`routes/users.js`), bổ sung test tích hợp trong `test/api.test.js` (28/28 pass).
-  - **Frontend & Hạ tầng:** Bổ sung form gửi yêu cầu cấp mật khẩu tạm tại `app/auth/forgot-password/page.js`, hiển thị nhãn **Cần cấp lại MK** bấm trực tiếp để mở modal đặt lại mật khẩu tại `app/dashboard/admin/page.js`, cập nhật `.gitignore` chặn `.agents/` và `.impeccable/`, thêm workflow `.github/workflows/ci.yml`.
+- **2026-11-20** — Hoàn thiện luồng quên mật khẩu, bảng quản trị RAG/Cache Bot ESH, gộp `landing-light.css` vào `landing.css`, dọn git worktree và cấu hình GitHub Actions CI:
+  - **Backend & Test:** Thêm `resetRequestedAt` trong `models/User.js`, endpoint `POST /api/auth/forgot-password` có rate-limit riêng (`routes/auth.js`), tự động xóa cờ `resetRequestedAt` khi đăng nhập hoặc đổi/đặt lại mật khẩu (`routes/users.js`); thêm `GET /api/chatbot/esh-knowledge` và `POST /api/chatbot/esh-cache/clear` (`routes/chatbot.js`, `utils/localKnowledge.js`); bổ sung test tích hợp trong `test/api.test.js` (28/28 pass).
+  - **Frontend & Hạ tầng:** Bổ sung form gửi yêu cầu cấp mật khẩu tạm tại `app/auth/forgot-password/page.js`, hiển thị nhãn **Cần cấp lại MK** và bảng **Cơ sở tri thức & Bộ nhớ đệm Bot ESH (RAG)** tại `app/dashboard/admin/page.js`, gộp `landing-light.css` vào `landing.css`, trỏ `npm run lint` sang `tsc --noEmit`, cập nhật `.gitignore` chặn `.agents/` và `.impeccable/`, thêm workflow `.github/workflows/ci.yml`.
 
 - **2026-11-18** — Hoàn thiện hệ thống chat streaming, quản trị ChatBot, bảo mật hạ tầng và tài liệu:
   - **Backend & Hạ tầng:** Hỗ trợ streaming SSE (`POST /api/chatbot/stream`, `utils/chatProviders.js`), sửa và kiểm tra sức khỏe ChatBot (`PATCH /api/apikeys/:id`, `POST /api/apikeys/check`, `POST /api/apikeys/:id/check`, trường `health` trong `ApiKey`), nâng `cloudinary` lên SDK v2 dùng `upload_stream` trực tiếp (`middleware/cloudinary.js`), lưu bộ đếm rate limit trong MongoDB TTL (`utils/rateLimit.js`), tách `utils/chunkMarkdown.js` và gỡ các gói Chroma/HF/Azure thừa.

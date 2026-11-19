@@ -96,6 +96,7 @@ docker compose up --build
 | `POST/PATCH/DELETE /api/users/:id…` | Đổi tên, mật khẩu, avatar; admin đổi quyền/khóa/xóa |
 | `GET/POST/PATCH/DELETE /api/apikeys…` | Danh sách ChatBot; admin thêm, sửa, ẩn/hiện, xóa và kiểm tra kết nối (`POST /api/apikeys/check`, `POST /api/apikeys/:id/check`) |
 | `POST /api/chatbot/dynamic`, `POST /api/chatbot/stream` | Gửi tin nhắn tới một ChatBot (trả nguyên câu hoặc trả dần qua Server-Sent Events; `botId: "esh-bot"` là bot tư vấn ESH) |
+| `GET /api/chatbot/esh-knowledge`, `POST /api/chatbot/esh-cache/clear` | (admin) Thống kê tài liệu RAG và xóa bộ nhớ đệm câu trả lời của bot ESH |
 | `GET/POST/PUT/DELETE /api/chat/history…` | Lịch sử chat của mình; admin xem của người khác qua `?userId=` |
 | `POST /api/upload/avatar` | Upload ảnh (đăng ký, ảnh bot) lên Cloudinary |
 | `GET /health` | Tình trạng server và kết nối MongoDB |

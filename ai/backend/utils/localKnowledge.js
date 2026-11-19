@@ -60,7 +60,36 @@ function readKnowledge() {
   const version = hash(JSON.stringify({ documents, manifest, model: EMBEDDING_MODEL }));
   const chunks = documents.flatMap(({ file, text }) => parseDocument(file, text, manifest[file]));
   if (!chunks.length) throw new Error("Knowledge base ESH chưa có nội dung.");
-  return { version, chunks, documentCount: files.length };
+  const docStats = documents.map(({ file, text }) => {
+    const docChunks = parseDocument(file, text, manifest[file]);
+    const pages = new Set(docChunks.map((c) => c.page).filter(Boolean));
+    return {
+      file,
+      referenceFile: manifest[file]?.file || file,
+      pageCount: pages.size,
+      chunkCount: docChunks.length,
+    };
+  });
+  return { version, chunks, documentCount: files.length, documents: docStats };
+}
+
+function getKnowledgeSummary() {
+  const knowledge = readKnowledge();
+  let indexCached = false;
+  try {
+    const saved = JSON.parse(fs.readFileSync(INDEX_PATH, "utf8"));
+    indexCached = saved?.version === knowledge.version && saved.vectors?.length === knowledge.chunks.length;
+  } catch {
+    indexCached = false;
+  }
+  return {
+    version: knowledge.version.slice(0, 12),
+    embeddingModel: EMBEDDING_MODEL,
+    documentCount: knowledge.documentCount,
+    chunkCount: knowledge.chunks.length,
+    indexCached,
+    documents: knowledge.documents,
+  };
 }
 
 async function buildIndex(knowledge) {
@@ -112,4 +141,4 @@ function searchKnowledge(index, embedding, question = "", limit = 5) {
   return [...pages.values()];
 }
 
-module.exports = { getKnowledgeIndex, searchKnowledge, parseDocument, hash, normalizeSearchText };
+module.exports = { getKnowledgeIndex, getKnowledgeSummary, searchKnowledge, parseDocument, hash, normalizeSearchText };

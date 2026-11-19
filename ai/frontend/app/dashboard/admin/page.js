@@ -47,6 +47,8 @@ export default function AdminPage() {
   const [resetError, setResetError] = useState("")
   const [resetSubmitting, setResetSubmitting] = useState(false)
   const [currentUserId, setCurrentUserId] = useState(null)
+  const [eshStats, setEshStats] = useState(null)
+  const [clearingEshCache, setClearingEshCache] = useState(false)
 
   const aiFormRef = useRef(null)
   const formSessionRef = useRef(0)
@@ -64,6 +66,7 @@ export default function AdminPage() {
     setCurrentUserId(me._id || me.id)
     fetchUsers()
     fetchAiKeys()
+    fetchEshStats()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -93,6 +96,32 @@ export default function AdminPage() {
   const fetchAiKeys = async () => {
     const { ok, data } = await apiFetch("/api/apikeys/admin")
     setAiKeys(ok && Array.isArray(data) ? data : [])
+  }
+
+  const fetchEshStats = async () => {
+    const { ok, data } = await apiFetch("/api/chatbot/esh-knowledge")
+    if (ok && data) setEshStats(data)
+  }
+
+  const handleClearEshCache = () => {
+    if (clearingEshCache) return
+    showConfirm({
+      message: "Bạn có chắc muốn xóa toàn bộ câu trả lời đã lưu trong bộ nhớ đệm của bot tư vấn ESH?",
+      onConfirm: async () => {
+        setClearingEshCache(true)
+        try {
+          const { ok, data } = await apiFetch("/api/chatbot/esh-cache/clear", { method: "POST" })
+          if (ok) {
+            setEshStats((prev) => (prev ? { ...prev, cachedAnswers: 0 } : prev))
+            notify(data?.message || "Đã xóa bộ nhớ đệm câu trả lời của bot ESH.")
+          } else {
+            notify(data?.message || "Không thể xóa bộ nhớ đệm ESH")
+          }
+        } finally {
+          setClearingEshCache(false)
+        }
+      },
+    })
   }
 
   const handleChangeRole = async (userId, newRole) => {
@@ -983,6 +1012,87 @@ export default function AdminPage() {
             {aiKeys.length === 0 && <div className="text-[#5d566f] italic mt-3 text-sm">Chưa có ChatBot nào.</div>}
           </CardContent>
         </Card>
+
+        {/* Cơ sở tri thức & Bộ nhớ đệm Bot tư vấn ESH (RAG) */}
+        {eshStats && (
+          <Card className="bg-[rgba(255,255,255,0.82)] backdrop-blur-md border border-[rgba(76,29,149,0.12)] rounded-[18px] shadow-[0_12px_32px_-18px_rgba(76,29,149,0.22)] overflow-hidden">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle className="text-xl font-bold text-[#1d1530]">
+                    Cơ sở tri thức & Bộ nhớ đệm Bot ESH (RAG)
+                  </CardTitle>
+                  <CardDescription className="text-[#5d566f]">
+                    Model embedding: <code className="font-mono text-xs text-[#4c1d95]">{eshStats.embeddingModel}</code>{" "}
+                    · Phiên bản chỉ mục: <code className="font-mono text-xs text-[#4c1d95]">{eshStats.version}</code>
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchEshStats}
+                    className="px-3.5 py-2 bg-white/90 text-[#1d1530] rounded-[11px] font-medium text-sm border border-[rgba(76,29,149,0.12)] hover:bg-[#f1edff] hover:text-[#6d28d9] transition inline-flex items-center gap-1.5"
+                  >
+                    <Icon icon="mdi:refresh" className="w-4 h-4" />
+                    Làm mới
+                  </button>
+                  <button
+                    type="button"
+                    disabled={clearingEshCache || !eshStats.cachedAnswers}
+                    onClick={handleClearEshCache}
+                    className="px-4 py-2 bg-[#fff1f2] text-[#be123c] rounded-[11px] font-medium text-sm border border-[rgba(225,29,72,0.25)] hover:bg-[#ffe4e6] transition disabled:opacity-50 inline-flex items-center gap-1.5"
+                  >
+                    <Icon
+                      icon={clearingEshCache ? "mdi:loading" : "mdi:broom"}
+                      className={`w-4 h-4 ${clearingEshCache ? "animate-spin" : ""}`}
+                    />
+                    Xóa cache câu trả lời ({eshStats.cachedAnswers ?? 0})
+                  </button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div className="rounded-[14px] border border-[rgba(76,29,149,0.1)] bg-[#fbfaff] p-3.5">
+                  <div className="text-xs text-[#5d566f]">Tài liệu tuyển sinh đã nạp</div>
+                  <div className="text-lg font-bold text-[#1d1530] mt-0.5">{eshStats.documentCount} tài liệu</div>
+                </div>
+                <div className="rounded-[14px] border border-[rgba(76,29,149,0.1)] bg-[#fbfaff] p-3.5">
+                  <div className="text-xs text-[#5d566f]">Tổng số đoạn trích (chunks)</div>
+                  <div className="text-lg font-bold text-[#1d1530] mt-0.5">
+                    {eshStats.chunkCount} đoạn ·{" "}
+                    <span className="text-xs font-medium text-emerald-700">
+                      {eshStats.indexCached ? "Đã tạo vector cache" : "Tự tạo khi truy vấn"}
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded-[14px] border border-[rgba(76,29,149,0.1)] bg-[#fbfaff] p-3.5">
+                  <div className="text-xs text-[#5d566f]">Câu trả lời đang lưu cache (0 token)</div>
+                  <div className="text-lg font-bold text-[#7c3aed] mt-0.5">{eshStats.cachedAnswers ?? 0} câu</div>
+                </div>
+              </div>
+
+              {Array.isArray(eshStats.documents) && eshStats.documents.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {eshStats.documents.map((doc) => (
+                    <div
+                      key={doc.file}
+                      className="flex items-center justify-between gap-2 rounded-[11px] border border-[rgba(76,29,149,0.08)] bg-white/80 px-3.5 py-2 text-xs"
+                    >
+                      <span className="font-medium text-[#1d1530] truncate" title={doc.referenceFile || doc.file}>
+                        {doc.file}
+                      </span>
+                      <span className="text-[#5d566f] whitespace-nowrap font-mono">
+                        {doc.pageCount ? `${doc.pageCount} trang · ` : ""}
+                        {doc.chunkCount} đoạn
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Hộp thoại đặt lại mật khẩu người dùng */}

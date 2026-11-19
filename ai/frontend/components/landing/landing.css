@@ -6,21 +6,21 @@
    ========================================================================== */
 
 .lp {
-  --bg: #070410;
-  --bg-alt: #0c081c;
-  --surface: rgba(20, 14, 38, 0.78);
-  --surface-2: rgba(31, 22, 58, 0.72);
-  --surface-solid: #140e26;
-  --border: rgba(196, 181, 253, 0.14);
-  --border-strong: rgba(167, 139, 250, 0.42);
+  --bg: #fbfaff;
+  --bg-alt: #f6f3ff;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-2: rgba(255, 255, 255, 0.7);
+  --surface-solid: #ffffff;
+  --border: rgba(76, 29, 149, 0.12);
+  --border-strong: rgba(124, 58, 237, 0.34);
 
-  --ink: #f8f7ff;
-  --muted: #a59dbb;
+  --ink: #1d1530;
+  --muted: #5d566f;
 
-  --accent: #c4b5fd;
-  --accent-bright: #ddd6fe;
+  --accent: #6d28d9;
+  --accent-bright: #5b21b6;
   --accent-solid: #7c3aed;
-  --accent-indigo: #6366f1;
+  --accent-indigo: #4f46e5;
   --accent-ink: #ffffff;
 
   --step-small: 0.875rem;
@@ -34,7 +34,7 @@
   --radius: 14px;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  background: var(--bg);
+  background: transparent;
   color: var(--ink);
   font-size: var(--step-body);
   line-height: 1.55;
@@ -3417,3 +3417,275 @@
     flex-direction: column;
   }
 }
+
+/* ==========================================================================
+   Hệ nền & Bề mặt Chủ đề Sáng thống nhất (Merged from landing-light.css)
+   ========================================================================== */
+
+.lp ::selection {
+  background: rgba(124, 58, 237, 0.18);
+  color: var(--ink);
+}
+
+.lp-light-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: #fbfaff;
+}
+
+.lp-light-rb {
+  position: absolute;
+  inset: 0;
+}
+.lp-light-rb > * {
+  width: 100%;
+  height: 100%;
+}
+
+.lp-light-bg--converge {
+  background:
+    radial-gradient(60% 50% at 15% 0%, rgba(196, 181, 253, 0.45), transparent 70%),
+    radial-gradient(50% 45% at 90% 10%, rgba(165, 243, 252, 0.4), transparent 70%),
+    radial-gradient(55% 45% at 50% 100%, rgba(187, 247, 208, 0.35), transparent 70%),
+    #fbfaff;
+}
+.lp-light-bg--trust {
+  background: #ffffff;
+}
+.lp-light-glow {
+  position: absolute;
+  top: -30vh;
+  left: 50%;
+  width: 90vw;
+  height: 70vh;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(196, 181, 253, 0.5), transparent);
+  pointer-events: none;
+}
+
+.lp :is(
+    .spotlight-card,
+    .pixel-card,
+    .lp-wordmark-badge,
+    .lp-hero-pill,
+    .lp-chip,
+    .lp-sec-kicker,
+    .lp-telemetry-pill,
+    .lp-router-conduit,
+    .lp-conduit-step,
+    .lp-composer-input-wrap,
+    .lp-meta-item,
+    .lp-feat-counter-pill,
+    .lp-feat-layout-switch,
+    .lp-feat-viz,
+    .lp-viz-cite,
+    .lp-viz-node,
+    .lp-step-card,
+    .lp-how-stage,
+    .lp-stage-chip,
+    .lp-admin-dist,
+    .lp-admin-pick,
+    .lp-admin-pick-log,
+    .lp-admin-stat,
+    .lp-faq-highlights,
+    .lp-cta-bar,
+    .lp-botrow,
+    .lp-botkeys li,
+    .lp-tile:not(.lp-tile-go),
+    .lp-msg-ai,
+    .lp-btn-glass
+  ) {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: var(--border);
+  box-shadow: 0 1px 2px rgba(29, 21, 48, 0.04), 0 12px 32px -18px rgba(76, 29, 149, 0.22);
+  color: var(--ink);
+}
+
+.lp .border-glow-card {
+  --card-bg: #ffffff;
+}
+.lp .lp-feat-card-inner,
+.lp .lp-feat-card.is-on .lp-feat-card-inner {
+  background: transparent;
+}
+.lp :is(.lp-step-card.is-active, .lp-botrow.is-selected, .lp-faq-list li button.is-sel, .lp-table tr.is-selected) {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+.lp .lp-faq-list li button {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: var(--border);
+  color: var(--ink);
+}
+.lp .lp-table th {
+  background: #f6f3ff;
+  color: var(--muted);
+}
+.lp input {
+  background: transparent;
+  color: var(--ink);
+}
+.lp input::placeholder {
+  color: #8f88a3;
+}
+.lp code {
+  background: #f3f0ff;
+  color: #4c1d95;
+  border-color: var(--border);
+}
+.lp .rubber-segment {
+  background: #f1edff;
+}
+.lp .rubber-segment__item {
+  color: #4c3f6b;
+}
+
+.lp :is(
+    .lp-head,
+    .lp-display,
+    .lp-lead,
+    .lp-subhead,
+    .lp-chip-name,
+    .lp-msg-ai,
+    .lp-msg-ai p,
+    .lp-conduit-num,
+    .lp-preview-tok-badge,
+    .lp-viz-session,
+    .lp-viz-tok-total,
+    .lp-viz-node,
+    .lp-admin-log-q,
+    .lp-faq-q,
+    .lp-faq-answer,
+    .lp-faq-pane-q,
+    .lp-feat-title,
+    .lp-step-title,
+    .lp-panel-title,
+    .lp-preview-title,
+    .lp-composer-title,
+    .lp-admin-card-title,
+    .lp-admin-stat-val,
+    .lp-tile:not(.lp-tile-go) p,
+    .lp-tile-big,
+    .lp-tile-nav-inner a,
+    .lp-nav a:not(.lp-nav-action),
+    .lp-user-cell strong,
+    .lp-botkey-main strong,
+    .lp-botrow-info strong,
+    .lp-table strong
+  ) {
+  color: var(--ink);
+}
+.lp :is(.lp-feat-detail, .lp-step-detail, .lp-admin-text, .lp-user-cell span, .lp-botrow-info span, .lp-botkey-main span, .lp-panel-sub, .lp-tile small, .lp-tile-kicker, .lp-preview-hint, .lp-admin-card-hint, .lp-cta-note) {
+  color: var(--muted);
+}
+.lp .text-sky-300 {
+  color: #0369a1;
+}
+.lp :is(.lp-badge, .lp-feat-tag, .lp-ex-tag, .lp-route-badge, .lp-token-pill) {
+  background: #f1edff;
+  border-color: rgba(124, 58, 237, 0.22);
+  color: #5b21b6;
+}
+.lp .lp-badge.is-blocked {
+  background: #fff1f2;
+  border-color: rgba(225, 29, 72, 0.25);
+  color: #be123c;
+}
+.lp .lp-accent {
+  color: #6d28d9;
+}
+
+.lp .gradient-text__content {
+  background-image: linear-gradient(90deg, #6d28d9, #4f46e5 50%, #0e7490);
+}
+.lp .gradient-text__glow {
+  display: none;
+}
+.lp .shiny-text {
+  -webkit-text-fill-color: #4c1d95;
+  background: none;
+  color: #4c1d95;
+}
+
+.lp :is(.lp-features, .lp-faq, .lp-show, .lp-how, .lp-admin, .lp-cta, .lp-footer) {
+  background: transparent;
+  border-color: var(--border);
+}
+
+.lp .lp-tile-brand {
+  color: var(--ink);
+}
+
+@media (min-width: 1200px) {
+  .lp .lp-hero {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: clamp(24px, 3vw, 48px);
+  }
+  .lp .lp-hero-copy {
+    grid-column: 1 / 7;
+    padding-right: 0;
+  }
+  .lp .lp-stage {
+    grid-column: 7 / 13;
+    padding-left: 0;
+    align-items: stretch;
+  }
+  .lp .lp-hero .lp-display {
+    font-size: clamp(2.8rem, 4.2vw, 4.4rem);
+  }
+  .lp .lp-hero .lp-lead {
+    font-size: var(--step-lead);
+    max-width: 40ch;
+  }
+  .lp .lp-hero-actions {
+    flex-wrap: nowrap;
+  }
+  .lp .lp-chat.spotlight-card {
+    max-width: none;
+    font-size: 14px;
+  }
+  .lp .lp-mascot {
+    width: 120px;
+    height: 120px;
+    margin: 0 22px -20px auto;
+  }
+}
+
+.lp :is(
+    .spotlight-card,
+    .lp-telemetry-pill,
+    .lp-conduit-step,
+    .lp-admin-dist-head,
+    .lp-feat-viz,
+    .lp-admin-pick,
+    .lp-faq-highlights,
+    .lp-step-card,
+    .lp-meta-item,
+    .lp-feat-counter-pill,
+    .lp-tile:not(.lp-tile-go)
+  )
+  strong {
+  color: var(--ink);
+}
+.lp :is(
+    .lp-admin-dist-legend span,
+    .lp-cta-perks span,
+    .lp-faq-hl-item span,
+    .lp-step-time,
+    .lp-viz-chip span,
+    .lp-viz-guard span,
+    .lp-admin-log-bot
+  ) {
+  color: var(--muted);
+}
+.lp :is(.lp-viz-code, .lp-faq-cat-pill) {
+  color: #5b21b6;
+}
+.lp :is(.lattice-loader__text, .lattice-loader__timer) {
+  color: #6d28d9;
+}
+

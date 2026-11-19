@@ -15,7 +15,6 @@ import ShinyText from "@/components/landing/react-bits/ShinyText"
 import ClickSpark from "@/components/landing/react-bits/ClickSpark"
 import CyberFox from "@/components/landing/CyberFox"
 import "@/components/landing/landing.css"
-import "@/components/landing/landing-light.css"
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({

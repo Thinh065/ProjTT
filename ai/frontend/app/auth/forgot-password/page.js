@@ -11,7 +11,6 @@ import ClickSpark from "@/components/landing/react-bits/ClickSpark"
 import CyberFox from "@/components/landing/CyberFox"
 import { apiFetch } from "@/lib/api"
 import "@/components/landing/landing.css"
-import "@/components/landing/landing-light.css"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")

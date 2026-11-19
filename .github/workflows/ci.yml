@@ -34,5 +34,7 @@ jobs:
           cache-dependency-path: ai/frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm --prefix ai/frontend ci
+      - name: Run frontend typecheck lint
+        run: npm --prefix ai/frontend run lint
       - name: Build Next.js application
         run: npm --prefix ai/frontend run build

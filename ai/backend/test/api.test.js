@@ -336,6 +336,16 @@ test("admins can edit a bot, check its health, and users can stream answers from
 
     // Thiếu botId: lỗi 400 thường (chưa mở stream)
     assert.equal((await api("/api/chatbot/stream", { method: "POST", token: user.token, body: { messages: [] } })).status, 400);
+
+    // Thống kê RAG & xóa cache câu trả lời ESH (chỉ admin)
+    assert.equal((await api("/api/chatbot/esh-knowledge", { token: user.token })).status, 403);
+    const kb = await api("/api/chatbot/esh-knowledge", { token: owner.token });
+    assert.equal(kb.status, 200);
+    assert.ok(kb.data.documentCount >= 10);
+    assert.ok(kb.data.chunkCount > 50);
+    const cleared = await api("/api/chatbot/esh-cache/clear", { method: "POST", token: owner.token });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.data.cachedAnswers, 0);
   } finally {
     upstream.close();
   }
