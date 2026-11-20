@@ -67,6 +67,41 @@ test("citation check tolerates formatting differences but not changed wording", 
   assert.throws(() => cite("Chương trình ... Anh")); // đoạn quá ngắn
 });
 
+test("a re-typed fee table row is accepted, but invented numbers never are", () => {
+  const sources = [{ id: "vce:1", label: "vce.pdf — trang 1", text: "Lớp   Học phí công bố (tháng) 2025 - 2026\n 11   45,630,000   31,941,000\n 12   49,550,000   34,685,000" }];
+  const cite = (answer, quote) => validateAnswer({ answer, citations: [{ sourceId: "S1", quote }] }, sources);
+  // Gemini chép lại dòng bảng bằng lời của mình: chữ và số đều có trong nguồn
+  assert.doesNotThrow(() => cite("Học phí lớp 11 là 45.630.000 VNĐ/tháng [S1].", "Lớp 11: 45,630,000 (học phí công bố tháng 2025 - 2026)"));
+  // Số trong trích dẫn không có trong nguồn
+  assert.throws(() => cite("Học phí lớp 11 là 45.630.000 VNĐ/tháng [S1].", "Lớp 11: 46,630,000 (học phí công bố tháng 2025 - 2026)"));
+  // Trích dẫn đúng nhưng câu trả lời lại nêu một số tiền khác
+  assert.throws(() => cite("Học phí lớp 11 là 47.000.000 VNĐ/tháng [S1].", "Lớp 11: 45,630,000 (học phí công bố tháng 2025 - 2026)"));
+});
+
+test("one unprovable citation is dropped when the answer's sources are still backed", () => {
+  const sources = [{ id: "fees:6", label: "fees.pdf — trang 6", text: "Chính sách hoàn học phí áp dụng cho học phí đã thanh toán một lần trọn năm. Thời gian thanh toán học phí hoàn: trong vòng 15-20 ngày làm việc." }];
+  const result = validateAnswer({
+    answer: "Chỉ hoàn cho học phí đóng trọn năm, tiền hoàn trả trong 15-20 ngày làm việc [S1].",
+    citations: [
+      { sourceId: "S1", quote: "Chính sách hoàn học phí áp dụng cho học phí đã thanh toán một lần trọn năm." },
+      { sourceId: "S1", quote: "Bảng tỷ lệ: ... 100% trước khai giảng ... 60% sau khai giảng" },
+    ],
+  }, sources);
+  assert.equal(result.cacheable, true);
+  assert.equal(result.sourceChunks.length, 1);
+  assert.doesNotMatch(result.sourceChunks[0], /Bảng tỷ lệ/);
+});
+
+test("a backed answer without [S1] markers gets the checked sources appended", () => {
+  const sources = [{ id: "intro:8", label: "intro.pdf — trang 8", text: "Trường tọa lạc trên Đại lộ Nguyễn Văn Linh, cách trung tâm Quận 1 chỉ 30 phút xe máy." }];
+  const result = validateAnswer({
+    answer: "Trường nằm trên Đại lộ Nguyễn Văn Linh, cách Quận 1 khoảng 30 phút xe máy.",
+    citations: [{ sourceId: "S1", quote: "Trường tọa lạc trên Đại lộ Nguyễn Văn Linh, cách trung tâm Quận 1 chỉ 30 phút xe máy." }],
+  }, sources);
+  assert.equal(result.message, "Trường nằm trên Đại lộ Nguyễn Văn Linh, cách Quận 1 khoảng 30 phút xe máy. [S1]");
+  assert.equal(result.cacheable, true);
+});
+
 test("uncited factual answers are replaced and are not cached", () => {
   const result = validateAnswer({ answer: "Trường miễn toàn bộ học phí.", citations: [] }, []);
   assert.equal(result.message, NO_INFO_ANSWER);
@@ -85,6 +120,21 @@ test("an exact cache hit returns the saved answer with zero API calls and zero t
   assert.deepEqual(answer.tokens, { input: 0, output: 0, total: 0 });
   assert.equal(answer.cache.match, "exact");
   assert.equal(calls, 0);
+});
+
+test("tuition questions retrieve the fee table page that holds the asked grade", async () => {
+  const index = await getKnowledgeIndex();
+  // Dòng giá trong biểu phí ESH 2025-2026: lớp 2 nằm ở trang 1, lớp 10 nằm ở trang 2
+  const cases = [
+    ["học phí bao nhiêu", "12,210,000"],
+    ["Học phí lớp 2 tại ESH năm học 2025-2026 là bao nhiêu?", "13,920,000"],
+    ["Học phí lớp 10 bao nhiêu?", "25,580,000"],
+  ];
+  for (const [question, amount] of cases) {
+    const [vector] = await embedTexts([question]);
+    const sources = searchKnowledge(index, vector, question);
+    assert.ok(sources.some((source) => source.text.includes(amount)), `${question} → thiếu trang có ${amount}`);
+  }
 });
 
 test("a Vietnamese paraphrase reuses the cached answer without contacting an AI", async (t) => {

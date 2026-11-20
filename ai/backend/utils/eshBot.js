@@ -35,6 +35,24 @@ function quoteInSource(quote, sourceText) {
   return true;
 }
 
+// Chữ và số trong một đoạn văn, để so khớp khi Gemini chép lại một dòng bảng không đúng từng ký tự
+// ("Lớp 11: 45,630,000 (học phí công bố…)" so với các cột bị PDF tách rời).
+const numbersIn = (text) => (String(text).match(/\d+(?:[.,]\d+)*/g) || []).map((n) => n.replace(/[.,]/g, ""));
+const wordsIn = (text) => (String(text).normalize("NFC").toLowerCase().match(/\p{L}+/gu) || []).filter((w) => w.length > 1);
+
+// Đoạn trích không nguyên văn vẫn được chấp nhận nếu mọi con số đều có trong nguồn và ≥ 85% số chữ có trong nguồn.
+// Đoạn có "..." (ghép nhiều chỗ) thì không dùng cách này: phải khớp từng đoạn theo đúng thứ tự như trên.
+function quoteSupportedBySource(quote, sourceText) {
+  if (quoteInSource(quote, sourceText)) return true;
+  if (/\.{3}|…/.test(quote)) return false;
+  const words = wordsIn(quote);
+  if (words.length < 4) return false;
+  const sourceWords = new Set(wordsIn(sourceText));
+  const sourceNumbers = new Set(numbersIn(sourceText));
+  if (!numbersIn(quote).every((number) => sourceNumbers.has(number))) return false;
+  return words.filter((word) => sourceWords.has(word)).length / words.length >= 0.85;
+}
+
 function cachedAnswer(entry, match) {
   return {
     message: entry.message,
@@ -89,28 +107,39 @@ function validateAnswer(data, sources) {
     throw new Error("Gemini trả về dữ liệu không hợp lệ.");
   }
   if (!data.citations.length) {
-    const clarification = /[?？]\s*$/.test(data.answer.trim()) && data.answer.length < 400;
+    const clarification = /[?？]\s*$/.test(data.answer.trim()) && data.answer.length < 600;
     return { message: clarification ? data.answer.trim() : NO_INFO_ANSWER, sourceChunks: [], sourceIds: [], cacheable: false };
   }
+  // Trích dẫn không chứng minh được thì bỏ đi; chỉ từ chối khi một nguồn [Sx] nhắc trong câu trả lời
+  // không còn trích dẫn hợp lệ nào.
   const evidence = [];
   for (const citation of data.citations) {
     const match = /^S([1-9]\d*)$/.exec(citation.sourceId || "");
     const source = match && sources[Number(match[1]) - 1];
     const quote = normalizeQuote(citation.quote || "");
-    if (!source || quote.length < 10 || !quoteInSource(quote, source.text)) {
-      throw new Error("Trích dẫn của Gemini chưa khớp tài liệu gốc.");
+    if (source && quote.length >= 10 && quoteSupportedBySource(quote, source.text)) {
+      evidence.push({ source, sourceId: citation.sourceId, quote });
     }
-    evidence.push({ source, sourceId: citation.sourceId, quote });
   }
+  if (!evidence.length) throw new Error("Trích dẫn của Gemini chưa khớp tài liệu gốc.");
   const citedIds = new Set(evidence.map((item) => item.sourceId));
   const answerIds = [...data.answer.matchAll(/\[(S\d+)\]/g)].map((match) => match[1]);
-  if (!answerIds.length || answerIds.some((id) => !citedIds.has(id))) {
+  if (answerIds.some((id) => !citedIds.has(id))) {
     throw new Error("Câu trả lời chưa gắn đúng nguồn đã kiểm tra.");
+  }
+  // Gemini đôi khi quên ghi [S1] trong câu trả lời dù trích dẫn hợp lệ: tự gắn các nguồn đã kiểm tra ở cuối
+  const message = answerIds.length
+    ? data.answer.trim()
+    : `${data.answer.trim()} ${[...citedIds].map((id) => `[${id}]`).join("")}`;
+  // Số tiền, năm, số điện thoại… (≥ 4 chữ số) trong câu trả lời phải có trong các nguồn đã trích
+  const citedNumbers = new Set(evidence.flatMap((item) => numbersIn(item.source.text)));
+  if (numbersIn(data.answer).some((number) => number.length >= 4 && !citedNumbers.has(number))) {
+    throw new Error("Câu trả lời có con số không tìm thấy trong tài liệu đã trích.");
   }
   const uniqueEvidence = [...new Map(evidence.map((item) => [item.sourceId, item])).values()];
   // Tên tài liệu + số trang nằm trong sourceChunks (giao diện hiện ở mục "Nguồn thông tin")
   return {
-    message: data.answer.trim(),
+    message,
     sourceChunks: uniqueEvidence.map((item) => `[${item.sourceId}] ${item.source.label}\n${item.quote}`),
     sourceIds: uniqueEvidence.map((item) => item.source.id),
     cacheable: true,

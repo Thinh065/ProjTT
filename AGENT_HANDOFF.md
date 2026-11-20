@@ -60,6 +60,12 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 
 ## Nhật ký
 
+- **2026-11-20 · Claude (bot ESH trả lời "chưa đủ thông tin" dù tài liệu có)** — Hỏi thật 11 câu (Gemini thật, Mongo trong bộ nhớ): trước sửa 4/11 đúng, sau sửa 11/11.
+  - Truy xuất (`utils/localKnowledge.js` → `searchKnowledge`): ưu tiên biểu phí cũ (+0.25) chưa từng chạy vì tên file giữ gạch ngang ("bieu-phi-esh"); dòng bảng giá bị cắt khỏi tiêu đề nên điểm thấp → khi hỏi số tiền, đoạn có ≥ 5 số tiền của đúng biểu phí (học phí ESH/VCE, xe bus, tiền ăn) được đưa lên đầu; tên tài liệu khớp câu hỏi (≥ 2 từ đặc trưng) được +0.3 ("hồ sơ tuyển sinh" → "Tuyen sinh ESH").
+  - Kiểm tra trích dẫn (`utils/eshBot.js` → `validateAnswer`): trích dẫn không nguyên văn vẫn nhận nếu mọi số có trong nguồn và ≥ 85% chữ có trong nguồn (trừ đoạn ghép bằng "..."); trích dẫn sai bị bỏ thay vì loại cả câu; số ≥ 4 chữ số trong câu trả lời phải có trong nguồn đã trích; thiếu [Sx] thì tự gắn nguồn đã kiểm tra.
+  - Prompt (`utils/prompts.js`): chưa rõ lớp/tuyến thì liệt kê các mức; nguồn theo năm mà hỏi theo tháng thì trả theo năm. Đổi prompt nên namespace cache đổi — cache ESH cũ trên Atlas không còn dùng.
+  - Test 32/32 (thêm 4 test: bảng giá theo lớp, dòng bảng chép lại, bỏ trích dẫn sai, tự gắn nguồn). Cache kiểm tra thật: hỏi lại y hệt / tài khoản khác / thêm "Dạ cho em hỏi…ạ" / diễn đạt khác → cùng câu trả lời, 0 token; hỏi lớp khác không dùng nhầm cache.
+
 - **2026-11-20 · Claude (rà soát sau Antigravity)** — Test backend 28/28, `tsc` + `next build` sạch. Sửa CI: job backend thiếu bước tải model embedding (`allowRemoteModels=false` nên thiếu `.cache/models` là test ESH lỗi) → thêm `actions/cache` cho `ai/backend/.cache/models` + `npm run prepare:embeddings`. Gỡ `.agents/` khỏi git (`git rm --cached`, file vẫn còn trên máy; `.gitignore` đã chặn). Cập nhật phần "Trạng thái hiện tại".
 
 - **2026-11-20** — Hoàn thiện luồng quên mật khẩu, bảng quản trị RAG/Cache Bot ESH, gộp `landing-light.css` vào `landing.css`, dọn git worktree và cấu hình GitHub Actions CI:

@@ -122,16 +122,45 @@ async function getKnowledgeIndex() {
   return indexPromise;
 }
 
+// Tên tài liệu dạng chữ thường không dấu, gạch ngang đổi thành khoảng trắng ("sources/Bieu-phi-ESH-…pdf" → "bieu phi esh …")
+const documentTitle = (document) => normalizeSearchText(path.basename(document, path.extname(document))).replace(/-/g, " ");
+// Từ chung có mặt ở nhiều tên tài liệu, không giúp phân biệt tài liệu nào
+const COMMON_TITLE_WORDS = new Set(["esh", "nam", "hoc", "bieu", "phi", "truong"]);
+const titleKeywords = (title) => title.split(" ").filter((word) => word.length > 1 && !/^\d+$/.test(word) && !COMMON_TITLE_WORDS.has(word));
+
+// Câu hỏi về một loại phí → tài liệu biểu phí tương ứng (một câu có thể hỏi nhiều loại)
+function requestedFeeDocuments(query) {
+  const documents = [];
+  if (/hoc phi|phi hoc/.test(query)) documents.push(/\bvce\b/.test(query) ? "bieu phi vce" : "bieu phi esh");
+  if (/\b(?:xe|bus|dua don|dua ruoc)\b/.test(query)) documents.push("bieu phi xe bus");
+  if (/\b(?:tien an|phi an|bua an|an trua|an sang|an ban tru|suat an)\b/.test(query)) {
+    documents.push(/\bvce\b/.test(query) ? "vce bieu phi an" : /\bcvk\b/.test(query) ? "esh cvk bieu phi an" : "esh bieu phi an");
+  }
+  return documents;
+}
+
 function searchKnowledge(index, embedding, question = "", limit = 5) {
   const query = normalizeSearchText(question);
   const words = [...new Set(query.split(" ").filter((word) => word.length > 1))];
-  const tuition = /hoc phi|phi hoc/.test(query);
-  const requestedFeeDocument = /\bvce\b/.test(query) ? "bieu phi vce" : "bieu phi esh";
+  const queryWords = new Set(query.split(" "));
+  const feeDocuments = requestedFeeDocuments(query);
+  // Chỉ đưa bảng giá lên đầu khi người hỏi muốn biết số tiền (không phải "hoàn học phí như thế nào")
+  const asksAmount = /bao nhieu|muc phi|muc hoc phi|chi phi|so tien|\bgia\b|het bao|tong cong|\bphi\b.*\blop \d+/.test(query);
   const scored = index.chunks.map((chunk, position) => {
     const text = ` ${normalizeSearchText(chunk.text)} `;
     const overlap = words.filter((word) => text.includes(` ${word} `)).length / Math.max(words.length, 1);
-    const feeBoost = tuition && normalizeSearchText(chunk.document).includes(requestedFeeDocument) ? 0.25 : 0;
-    return { ...chunk, score: cosineSimilarity(embedding, index.vectors[position]) + 0.3 * overlap + feeBoost };
+    const title = documentTitle(chunk.document);
+    // Câu hỏi chứa đủ các từ đặc trưng của tên tài liệu ("hồ sơ tuyển sinh" ↔ "Tuyen sinh ESH",
+    // "chương trình bổ trợ" ↔ "4 - Chương trình bổ trợ") thì ưu tiên tài liệu đó
+    const keywords = titleKeywords(title);
+    const titleBoost = keywords.length >= 2 && keywords.every((word) => queryWords.has(word)) ? 0.3 : 0;
+    const feeDocument = feeDocuments.some((name) => title.includes(name));
+    // Các dòng của bảng giá ("2  13,920,000  9,744,000 ...") bị cắt rời khỏi tiêu đề "Mức học phí" và
+    // gần như chỉ có số, nên điểm ngữ nghĩa rất thấp. Khi hỏi số tiền, đoạn chứa nhiều số tiền trong đúng
+    // biểu phí được hỏi luôn được đưa lên đầu, để Gemini thấy bảng giá của mọi khối lớp.
+    const amounts = feeDocument && asksAmount ? (chunk.text.match(/\b\d{1,3}(?:[.,]\d{3}){2,}\b/g) || []).length : 0;
+    const feeBoost = feeDocument ? 0.25 + (amounts >= 5 ? 1 : 0) : 0;
+    return { ...chunk, score: cosineSimilarity(embedding, index.vectors[position]) + 0.3 * overlap + titleBoost + feeBoost };
   }).sort((left, right) => right.score - left.score);
   const pages = new Map();
   for (const chunk of scored) {
