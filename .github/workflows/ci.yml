@@ -10,6 +10,10 @@ jobs:
   backend-test:
     name: Backend Tests (API & ESH RAG)
     runs-on: ubuntu-latest
+    env:
+      # onnxruntime-node trên Linux x64 mặc định tải thêm bản CUDA (GPU) và có thể lỗi 404;
+      # bot ESH chỉ chạy embedding trên CPU nên bỏ qua.
+      ONNXRUNTIME_NODE_INSTALL_CUDA: skip
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

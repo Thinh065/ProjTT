@@ -4,6 +4,8 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 ENV NODE_ENV=production
+# Không tải bản CUDA (GPU) của onnxruntime-node: embedding chạy trên CPU, và link tải CUDA có thể lỗi 404
+ENV ONNXRUNTIME_NODE_INSTALL_CUDA=skip
 
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
