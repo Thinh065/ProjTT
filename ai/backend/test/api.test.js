@@ -171,6 +171,21 @@ test("chat history is private to its owner and visible to admins", async () => {
   assert.equal((await api("/api/chat/history", { token: alice.token })).data.chats.length, 0);
 });
 
+test("a huge conversation is trimmed to fit one MongoDB document instead of failing", async () => {
+  // 100 tin × 50.000 ký tự = 5 triệu ký tự > giới hạn 4 triệu → giữ 80 tin mới nhất; ngày sai không gây lỗi
+  const messages = Array.from({ length: 100 }, (_, i) => ({
+    role: i % 2 ? "assistant" : "user",
+    content: `#${i} ${"x".repeat(49_990)}`,
+    timestamp: "không phải ngày",
+  }));
+  const saved = await api("/api/chat/history/save", { method: "POST", token: alice.token, body: { botId: "esh-bot", messages } });
+  assert.equal(saved.status, 201);
+  assert.equal(saved.data.chat.messages.length, 80);
+  assert.match(saved.data.chat.messages[0].content, /^#20 /);
+  assert.match(saved.data.chat.messages.at(-1).content, /^#99 /);
+  await api(`/api/chat/history/${saved.data.chat.id}`, { method: "DELETE", token: alice.token });
+});
+
 test("chatbot list never exposes keys; hidden bots are admin-only", async () => {
   const noKey = await api("/api/apikeys", { method: "POST", token: admin.token, body: { name: "Bot", baseURL: "https://example.com/v1" } });
   assert.equal(noKey.status, 400);

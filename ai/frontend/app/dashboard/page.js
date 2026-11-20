@@ -21,6 +21,21 @@ export default function DashboardPage() {
   const [editingChat, setEditingChat] = useState(null)
   // Trên điện thoại, cột bot + lịch sử là ngăn kéo trượt ra
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  // Máy tính: thu gọn cột bot + lịch sử để khung chat rộng hơn (trình duyệt nhớ lựa chọn)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  useEffect(() => {
+    try {
+      setSidebarCollapsed(localStorage.getItem("dashboardSidebarCollapsed") === "1")
+    } catch {}
+  }, [])
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed((collapsed) => {
+      try {
+        localStorage.setItem("dashboardSidebarCollapsed", collapsed ? "0" : "1")
+      } catch {}
+      return !collapsed
+    })
+  }
 
   // Đọc botId/chatId từ URL một lần khi vào trang
   const urlParams = useRef(null)
@@ -197,20 +212,24 @@ export default function DashboardPage() {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      {/* Bot Selector: cột cố định trên máy tính, ngăn kéo trên điện thoại */}
+      {/* Bot Selector: cột trên máy tính (thu gọn được), ngăn kéo trên điện thoại */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-[86vw] max-w-80 bg-[rgba(255,255,255,0.88)] backdrop-blur-xl border-r border-[rgba(76,29,149,0.12)] flex flex-col transition-transform duration-200 md:static md:z-auto md:w-80 md:max-w-none md:translate-x-0 ${
+        id="dashboard-sidebar"
+        className={`fixed inset-y-0 left-0 z-40 w-[86vw] max-w-80 bg-[rgba(255,255,255,0.88)] backdrop-blur-xl border-r border-[rgba(76,29,149,0.12)] flex flex-col overflow-hidden transition-[transform,width] duration-200 md:static md:z-auto md:max-w-none md:translate-x-0 ${
           sidebarOpen ? "translate-x-0 shadow-[0_12px_32px_-18px_rgba(76,29,149,0.22)]" : "-translate-x-full"
-        }`}
+        } ${sidebarCollapsed ? "md:w-0 md:border-r-0 md:invisible" : "md:w-80"}`}
       >
-        <BotSelector bots={bots} selectedBot={selectedBot} onSelectBot={handleSelectBot} />
-        <ChatHistory
-          selectedBot={selectedBot}
-          currentChat={currentChat}
-          onSelectChat={handleSelectChat}
-          chats={chatHistory}
-          onDeleteChat={handleDeleteChat}
-        />
+        {/* Bề rộng cố định để nội dung trượt ra, không bị bóp méo khi cột thu lại */}
+        <div className="flex flex-col h-full min-h-0 w-full md:w-80 md:shrink-0">
+          <BotSelector bots={bots} selectedBot={selectedBot} onSelectBot={handleSelectBot} />
+          <ChatHistory
+            selectedBot={selectedBot}
+            currentChat={currentChat}
+            onSelectChat={handleSelectChat}
+            chats={chatHistory}
+            onDeleteChat={handleDeleteChat}
+          />
+        </div>
       </div>
       {/* Chat Interface */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -226,6 +245,21 @@ export default function DashboardPage() {
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className="hidden md:inline-flex -ml-1.5 p-2 rounded-[10px] text-[#5d566f] hover:text-[#4c1d95] hover:bg-[#f1edff] transition"
+                aria-label={sidebarCollapsed ? "Hiện thanh bên" : "Ẩn thanh bên"}
+                title={sidebarCollapsed ? "Hiện thanh bên" : "Ẩn thanh bên"}
+                aria-controls="dashboard-sidebar"
+                aria-expanded={!sidebarCollapsed}
+                onClick={toggleSidebarCollapsed}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                  <path d="M9 4v16" />
+                  <path d={sidebarCollapsed ? "M13.5 10l2 2-2 2" : "M15.5 10l-2 2 2 2"} />
                 </svg>
               </button>
               <span className="font-semibold text-base text-[#1d1530] truncate">{selectedBot.name}</span>

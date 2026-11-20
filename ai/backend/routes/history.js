@@ -9,6 +9,9 @@ router.use(auth);
 
 const MAX_MESSAGES = 500;
 const MAX_CONTENT_LENGTH = 50_000;
+// Một document MongoDB tối đa 16 MB (tiếng Việt có dấu tới 3 byte/ký tự): giữ tổng nội dung ≤ 4 triệu ký tự,
+// vượt thì bỏ bớt tin cũ nhất thay vì để lần lưu bị lỗi.
+const MAX_TOTAL_CONTENT = 4_000_000;
 
 const isAdmin = (req) => req.user.role === "admin";
 
@@ -32,18 +35,26 @@ const full = (c) => ({ ...summary(c), messages: c.messages || [] });
 
 function sanitizeMessages(messages) {
   if (!Array.isArray(messages)) return [];
-  return messages
+  const clean = messages
     .filter((m) => m && ["user", "assistant", "system"].includes(m.role))
     .slice(-MAX_MESSAGES)
     .map((m) => ({
       role: m.role,
       content: String(m.content ?? "").slice(0, MAX_CONTENT_LENGTH),
-      timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+      // Ngày không hợp lệ ("abc") làm Mongoose báo CastError → dùng thời điểm hiện tại
+      timestamp: Number.isNaN(new Date(m.timestamp ?? NaN).getTime()) ? new Date() : new Date(m.timestamp),
       tokens: Math.max(0, Number(m.tokens) || 0),
       ...(Array.isArray(m.sourceChunks) && m.sourceChunks.length
-        ? { sourceChunks: m.sourceChunks.slice(0, 20).map(String) }
+        ? { sourceChunks: m.sourceChunks.slice(0, 20).map((chunk) => String(chunk).slice(0, 5_000)) }
         : {}),
     }));
+  // Bỏ tin cũ nhất cho tới khi tổng nội dung nằm trong giới hạn
+  let total = clean.reduce((sum, m) => sum + m.content.length + (m.sourceChunks || []).join("").length, 0);
+  while (total > MAX_TOTAL_CONTENT && clean.length > 1) {
+    const dropped = clean.shift();
+    total -= dropped.content.length + (dropped.sourceChunks || []).join("").length;
+  }
+  return clean;
 }
 
 // Tìm một cuộc trò chuyện mà user hiện tại được phép truy cập

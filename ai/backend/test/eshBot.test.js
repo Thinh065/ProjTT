@@ -102,6 +102,55 @@ test("a backed answer without [S1] markers gets the checked sources appended", (
   assert.equal(result.cacheable, true);
 });
 
+test("grouped markers like [S1, S2] are split and each one is checked", () => {
+  const sources = [
+    { id: "a:1", label: "a.pdf — trang 1", text: "Học sinh được giảm thêm 5% cho con thứ 2." },
+    { id: "b:2", label: "b.pdf — trang 2", text: "Học bổng Bệ phóng Tài năng có hạn chót trước 30/05/2025." },
+  ];
+  const result = validateAnswer({
+    answer: "Có giảm 5% cho con thứ 2 và học bổng Bệ phóng Tài năng [S1, S2].",
+    citations: [
+      { sourceId: "S1", quote: "Học sinh được giảm thêm 5% cho con thứ 2." },
+      { sourceId: "S2", quote: "Học bổng Bệ phóng Tài năng có hạn chót trước 30/05/2025." },
+    ],
+  }, sources);
+  assert.match(result.message, /\[S1\]\[S2\]/);
+  assert.throws(() => validateAnswer({ answer: "Có giảm 5% [S1, S3].", citations: [{ sourceId: "S1", quote: "Học sinh được giảm thêm 5% cho con thứ 2." }] }, sources));
+});
+
+test("an answer rejected by the checks is asked again once with the reason", async (t) => {
+  let calls = 0;
+  const bodies = [];
+  t.mock.method(AnswerCache, "findOne", () => ({ lean: async () => null }));
+  t.mock.method(AnswerCache, "find", () => ({ lean: async () => [] }));
+  t.mock.method(AnswerCache, "updateOne", async () => ({}));
+  t.mock.method(ChatLog, "create", async () => ({}));
+  const index = await getKnowledgeIndex();
+  t.mock.method(global, "fetch", async (_url, options) => {
+    calls += 1;
+    bodies.push(JSON.parse(options.body).contents[0].parts[0].text);
+    const prompt = JSON.parse(bodies.at(-1));
+    const source = prompt.knowledgeBase[0];
+    const quote = source.text.split("\n").map((line) => line.trim()).find((line) => line.length > 20);
+    // Lần 1: tự tính ra một con số không có trong nguồn → bị từ chối; lần 2: trả lời đúng
+    const answer = calls === 1 ? "Chênh lệch là 98.765.432 đ [S1]." : "Theo tài liệu [S1].";
+    return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ answer, citations: [{ sourceId: "S1", quote }] }) }] } }], usageMetadata: { totalTokenCount: 10 } }) };
+  });
+  const originalKey = process.env.GEMINI_API_KEY;
+  process.env.GEMINI_API_KEY = "synthetic-test-key-never-sent";
+  try {
+    assert.ok(index.chunks.length);
+    const result = await callEshBot([{ role: "user", content: "Học phí lớp 9 và lớp 12 khác nhau bao nhiêu?" }], "507f1f77bcf86cd799439041");
+    assert.equal(calls, 2);
+    assert.equal(result.message, "Theo tài liệu [S1].");
+    assert.equal(result.tokens.total, 20);
+    assert.match(JSON.parse(bodies[1]).systemNote, /không tìm thấy trong tài liệu/);
+  } finally {
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
+  }
+});
+
 test("uncited factual answers are replaced and are not cached", () => {
   const result = validateAnswer({ answer: "Trường miễn toàn bộ học phí.", citations: [] }, []);
   assert.equal(result.message, NO_INFO_ANSWER);
@@ -134,6 +183,23 @@ test("tuition questions retrieve the fee table page that holds the asked grade",
     const [vector] = await embedTexts([question]);
     const sources = searchKnowledge(index, vector, question);
     assert.ok(sources.some((source) => source.text.includes(amount)), `${question} → thiếu trang có ${amount}`);
+  }
+});
+
+test("refund, scholarship, English and follow-up style questions reach the right pages", async () => {
+  const index = await getKnowledgeIndex();
+  const cases = [
+    // Điều 8 (hoàn học phí) không bị bảng học phí chiếm chỗ dù câu hỏi có "bao nhiêu"
+    ["Nếu nghỉ học giữa năm thì được hoàn bao nhiêu học phí?", "Đối tượng áp dụng hoàn học phí"],
+    ["Trường có học bổng không? Điều kiện thế nào?", "Điều kiện để nộp hồ sơ xét tuyển học bổng"],
+    ["How much is the tuition fee for grade 3?", "15,680,000"],
+    // Câu nối tiếp được tìm kèm câu hỏi trước đó (eshBot ghép lại trước khi tìm)
+    ["Học phí lớp 5 năm học 2025-2026 là bao nhiêu? Còn lớp 6 thì sao?", "19,220,000"],
+  ];
+  for (const [question, expected] of cases) {
+    const [vector] = await embedTexts([question]);
+    const sources = searchKnowledge(index, vector, question);
+    assert.ok(sources.some((source) => source.text.includes(expected)), `${question} → thiếu trang có "${expected}"`);
   }
 });
 

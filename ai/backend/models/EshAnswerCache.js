@@ -16,5 +16,8 @@ const answerCacheSchema = new mongoose.Schema({
 
 answerCacheSchema.index({ user: 1, namespace: 1, contextKey: 1, normalizedQuestion: 1 }, { unique: true });
 answerCacheSchema.index({ user: 1, namespace: 1, contextKey: 1, constraints: 1 });
+// Mỗi lần đổi prompt/tài liệu/model, namespace đổi và cache cũ không còn được dùng. Tự xóa mục nào
+// 60 ngày không được dùng tới (mỗi lần trúng cache, eshBot làm mới updatedAt) để collection không phình mãi.
+answerCacheSchema.index({ updatedAt: 1 }, { expireAfterSeconds: 60 * 24 * 60 * 60 });
 
 module.exports = mongoose.model("EshAnswerCache", answerCacheSchema);

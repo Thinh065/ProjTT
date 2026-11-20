@@ -60,6 +60,14 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 
 ## Nhật ký
 
+- **2026-11-20 · Claude (bot ESH trả lời chi tiết + rà soát/tối ưu)**
+  - Trả lời: prompt có dàn ý bắt buộc cho mọi câu (câu trả lời thẳng → các mục ### chi tiết → khối "> **Lưu ý:**"); câu về phí luôn có mục "Các khoản phí và chính sách liên quan"; bảng ghi "Lớp 1", "12.210.000 đ", [Sx] đặt ở câu dẫn; câu tiếng Anh trả lời bằng tiếng Anh. Bị kiểm tra từ chối thì hỏi lại Gemini 1 lần kèm lý do (giữ nguyên độ chi tiết); Gemini treo > 35 s thì thử lại 1 lần; "[S1, S2]" tách để kiểm tra.
+  - Truy xuất: từ tiếng Anh → tiếng Việt; chủ đề → tài liệu (học bổng → Tuyen sinh…); câu nối tiếp tìm kèm câu hỏi trước; câu hỏi hoàn phí/bảo lưu không bị bảng giá chiếm chỗ.
+  - Giao diện: `components/chat/markdownComponents.js` dùng chung (bảng co theo nội dung, căn giữa, tự căn phải cột tiền; danh sách, tiêu đề, khung Lưu ý); `displayMarkdown` (lib/chat.js) nối dòng "- …" vào khung Lưu ý; nút ẩn/hiện thanh bên trên máy tính (nhớ trong localStorage).
+  - Tối ưu: tri thức ESH giữ trong bộ nhớ, chỉ đọc lại khi file đổi (100 ms → 2,5 ms mỗi câu hỏi, trước đây chặn cả server); chữ chuẩn hóa tính sẵn (tìm kiếm 34 → 10 ms); trang quản trị không đọc lại file index 2 MB.
+  - Chống phình: `eshanswercaches` TTL 60 ngày theo updatedAt (trúng cache thì làm mới); `chatlogs` TTL 180 ngày; lịch sử chat giới hạn 4 triệu ký tự/cuộc (bỏ tin cũ nhất, tránh vượt 16 MB); khung chat chỉ gửi 50 tin gần nhất.
+  - Test 36/36; hỏi thật 20 câu: 17 trả lời đầy đủ + 3 từ chối đúng (năm 2035, lớp 13, câu ngoài phạm vi).
+
 - **2026-11-20 · Claude (bot ESH trả lời "chưa đủ thông tin" dù tài liệu có)** — Hỏi thật 11 câu (Gemini thật, Mongo trong bộ nhớ): trước sửa 4/11 đúng, sau sửa 11/11.
   - Truy xuất (`utils/localKnowledge.js` → `searchKnowledge`): ưu tiên biểu phí cũ (+0.25) chưa từng chạy vì tên file giữ gạch ngang ("bieu-phi-esh"); dòng bảng giá bị cắt khỏi tiêu đề nên điểm thấp → khi hỏi số tiền, đoạn có ≥ 5 số tiền của đúng biểu phí (học phí ESH/VCE, xe bus, tiền ăn) được đưa lên đầu; tên tài liệu khớp câu hỏi (≥ 2 từ đặc trưng) được +0.3 ("hồ sơ tuyển sinh" → "Tuyen sinh ESH").
   - Kiểm tra trích dẫn (`utils/eshBot.js` → `validateAnswer`): trích dẫn không nguyên văn vẫn nhận nếu mọi số có trong nguồn và ≥ 85% chữ có trong nguồn (trừ đoạn ghép bằng "..."); trích dẫn sai bị bỏ thay vì loại cả câu; số ≥ 4 chữ số trong câu trả lời phải có trong nguồn đã trích; thiếu [Sx] thì tự gắn nguồn đã kiểm tra.

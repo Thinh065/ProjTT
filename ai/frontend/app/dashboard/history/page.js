@@ -12,40 +12,8 @@ import { Icon } from "@iconify/react"
 import { useConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { ESH_BOT } from "@/components/chat/BotSelector"
 import { apiFetch, getStoredUser } from "@/lib/api"
-import { messageText } from "@/lib/chat"
-import { cn } from "@/lib/utils"
-
-// Khối code trong câu trả lời Markdown
-const markdownComponents = {
-  pre: ({ node, className, ...props }) => (
-    <pre
-      className={cn(
-        "overflow-x-auto bg-[#1d1530] text-[#f1edff] rounded-[12px] p-3 my-2 text-xs font-mono border border-[rgba(76,29,149,0.2)] [&_code]:bg-transparent [&_code]:text-inherit [&_code]:p-0 [&_code]:border-0 [&_code]:rounded-none [&_code]:text-xs",
-        className
-      )}
-      style={{ maxWidth: "100%" }}
-      {...props}
-    />
-  ),
-  code: ({ node, className, children, ...props }) => {
-    const isBlock = Boolean(className?.includes("language-") || String(children ?? "").includes("\n"))
-    return (
-      <code
-        className={
-          isBlock
-            ? cn("font-mono text-xs", className)
-            : cn(
-                "bg-[#f1edff] text-[#4c1d95] rounded px-1.5 py-0.5 font-mono text-[90%] border border-[rgba(76,29,149,0.12)]",
-                className
-              )
-        }
-        {...props}
-      >
-        {children}
-      </code>
-    )
-  },
-}
+import { displayMarkdown, messageText } from "@/lib/chat"
+import markdownComponents from "@/components/chat/markdownComponents"
 
 export default function HistoryPage() {
   const [chats, setChats] = useState([])
@@ -439,7 +407,7 @@ export default function HistoryPage() {
                     {m.role === "assistant" ? (
                       <div className="prose prose-sm break-words max-w-full text-[#1d1530]">
                         <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                          {messageText(m)}
+                          {displayMarkdown(messageText(m))}
                         </ReactMarkdown>
                         {m.sourceChunks?.length > 0 && (
                           <details className="mt-2 pt-2 border-t border-[rgba(76,29,149,0.12)]">

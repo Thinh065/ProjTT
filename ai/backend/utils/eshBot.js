@@ -54,6 +54,11 @@ function quoteSupportedBySource(quote, sourceText) {
 }
 
 function cachedAnswer(entry, match) {
+  // Làm mới updatedAt để mục còn được dùng không bị TTL (60 ngày) xóa; không chờ, lỗi cũng không ảnh hưởng câu trả lời
+  if (entry._id && AnswerCache.db.readyState === 1) {
+    AnswerCache.updateOne({ _id: entry._id }, { $currentDate: { updatedAt: true } }, { timestamps: false })
+      .catch(() => {});
+  }
   return {
     message: entry.message,
     sourceChunks: entry.sourceChunks,
@@ -106,6 +111,8 @@ function validateAnswer(data, sources) {
   if (typeof data?.answer !== "string" || !data.answer.trim() || !Array.isArray(data.citations)) {
     throw new Error("Gemini trả về dữ liệu không hợp lệ.");
   }
+  // "[S2, S4]" → "[S2][S4]" để mọi ký hiệu nguồn đều được kiểm tra
+  data = { ...data, answer: data.answer.replace(/\[\s*(S\d+(?:\s*[,;]\s*S\d+)+)\s*\]/g, (_, ids) => ids.split(/\s*[,;]\s*/).map((id) => `[${id}]`).join("")) };
   if (!data.citations.length) {
     const clarification = /[?？]\s*$/.test(data.answer.trim()) && data.answer.length < 600;
     return { message: clarification ? data.answer.trim() : NO_INFO_ANSWER, sourceChunks: [], sourceIds: [], cacheable: false };
@@ -147,6 +154,7 @@ function validateAnswer(data, sources) {
 }
 
 const GEMINI_RETRY_DELAY_MS = Number(process.env.GEMINI_RETRY_DELAY_MS) || 2000;
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS) || 35000;
 
 async function generateAnswer(model, messages, sources) {
   if (!process.env.GEMINI_API_KEY) {
@@ -154,12 +162,13 @@ async function generateAnswer(model, messages, sources) {
     error.status = 503;
     throw error;
   }
-  const request = () => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+  // retryNote: lý do lần trả lời trước bị kiểm tra từ chối, để Gemini sửa đúng chỗ ở lần hỏi lại
+  const request = (retryNote) => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": process.env.GEMINI_API_KEY },
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: ESH_SYSTEM_PROMPT }] },
-      contents: [{ role: "user", parts: [{ text: buildEshPrompt({ sources, conversation: messages.slice(-7, -1), question: messages.at(-1).content }) }] }],
+      contents: [{ role: "user", parts: [{ text: buildEshPrompt({ sources, conversation: messages.slice(-7, -1), question: messages.at(-1).content, retryNote }) }] }],
       generationConfig: {
         temperature: 0,
         maxOutputTokens: 4096,
@@ -174,32 +183,53 @@ async function generateAnswer(model, messages, sources) {
         },
       },
     }),
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
   });
-  let response = await request();
-  // Gemini quá tải tạm thời (503) thường hết sau vài giây: thử lại một lần
-  if (response.status === 503) {
-    await new Promise((resolve) => setTimeout(resolve, GEMINI_RETRY_DELAY_MS));
-    response = await request();
+  // Gemini đôi khi treo rất lâu: mỗi lần chờ tối đa GEMINI_TIMEOUT_MS, hết giờ thì thử lại một lần
+  const send = async (retryNote) => {
+    try { return await request(retryNote); } catch (error) {
+      if (error.name !== "TimeoutError") throw error;
+      return request(retryNote);
+    }
+  };
+
+  const tokens = { input: 0, output: 0, total: 0 };
+  let retryNote;
+  for (let attempt = 1; ; attempt += 1) {
+    let response = await send(retryNote);
+    // Gemini quá tải tạm thời (503) thường hết sau vài giây: thử lại một lần
+    if (response.status === 503) {
+      await new Promise((resolve) => setTimeout(resolve, GEMINI_RETRY_DELAY_MS));
+      response = await send(retryNote);
+    }
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const overloaded = response.status === 429 || response.status === 503;
+      const error = new Error(overloaded
+        ? "Máy chủ AI (Gemini) đang quá tải, bạn vui lòng thử lại sau ít phút."
+        : `Gemini API lỗi (${response.status}): ${data.error?.message || "không rõ nguyên nhân"}`);
+      error.status = overloaded ? 429 : 502;
+      throw error;
+    }
+    const usage = data.usageMetadata || {};
+    tokens.input += usage.promptTokenCount || 0;
+    tokens.output += usage.candidatesTokenCount || 0;
+    tokens.total += usage.totalTokenCount || 0;
+    const text = data.candidates?.[0]?.content?.parts?.filter((part) => !part.thought).map((part) => part.text || "").join("");
+    try {
+      return { ...validateAnswer(JSON.parse(text), sources), tokens };
+    } catch (cause) {
+      const reason = cause instanceof SyntaxError ? "Gemini chưa trả về câu trả lời hoàn chỉnh." : cause.message;
+      // Bị kiểm tra từ chối lần đầu: hỏi lại một lần kèm lý do, thay vì báo lỗi ngay cho người dùng
+      if (attempt === 1) {
+        retryNote = `Câu trả lời trước bị hệ thống kiểm tra từ chối vì: ${reason} Hãy trả lời lại: chỉ dùng con số có sẵn trong nguồn (không tự tính chênh lệch, tổng hay quy đổi), mỗi ký hiệu [Sx] trong câu trả lời phải có ít nhất một citation chép nguyên văn từ đúng nguồn Sx. Giữ nguyên mức độ chi tiết và dàn ý (các mục ###, gạch đầu dòng, bảng, khối Lưu ý); chỉ sửa đúng chỗ bị từ chối, không rút gọn câu trả lời.`;
+        continue;
+      }
+      const error = new Error(reason);
+      error.status = 502;
+      throw error;
+    }
   }
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const overloaded = response.status === 429 || response.status === 503;
-    const error = new Error(overloaded
-      ? "Máy chủ AI (Gemini) đang quá tải, bạn vui lòng thử lại sau ít phút."
-      : `Gemini API lỗi (${response.status}): ${data.error?.message || "không rõ nguyên nhân"}`);
-    error.status = overloaded ? 429 : 502;
-    throw error;
-  }
-  const text = data.candidates?.[0]?.content?.parts?.filter((part) => !part.thought).map((part) => part.text || "").join("");
-  let answer;
-  try { answer = validateAnswer(JSON.parse(text), sources); } catch (cause) {
-    const error = new Error(cause instanceof SyntaxError ? "Gemini chưa trả về câu trả lời hoàn chỉnh." : cause.message);
-    error.status = 502;
-    throw error;
-  }
-  const usage = data.usageMetadata || {};
-  return { ...answer, tokens: { input: usage.promptTokenCount || 0, output: usage.candidatesTokenCount || 0, total: usage.totalTokenCount || 0 } };
 }
 
 const SEMANTIC_THRESHOLD = 0.84;
@@ -231,11 +261,14 @@ async function answerQuestion(messages, userId) {
   const exact = await AnswerCache.findOne({ ...filter, normalizedQuestion }).lean();
   if (exact) return cachedAnswer(exact, "exact");
 
-  const [embedding] = await embedTexts([question]);
+  // Câu nối tiếp ("Còn lớp 6 thì sao?") tự nó thiếu chủ đề: tìm kiếm kèm câu hỏi trước đó của người dùng
+  const previousQuestion = messages.slice(0, -1).reverse().find((message) => message.role === "user")?.content;
+  const searchText = contextKey !== "standalone" && previousQuestion ? `${coreQuestion(previousQuestion)} ${question}` : question;
+  const [embedding] = await embedTexts([searchText]);
   // Nguồn của câu đã lưu chỉ cần nằm trong nhóm 10 trang liên quan nhất là dùng lại được
-  const related = searchKnowledge(index, embedding, question, 10);
+  const related = searchKnowledge(index, embedding, searchText, 10);
   const sources = related.slice(0, 5);
-  const candidates = await AnswerCache.find({ ...filter, constraints }).lean();
+  const candidates = await AnswerCache.find({ ...filter, constraints }, "embedding sourceIds message sourceChunks").lean();
   const relatedIds = new Set(related.map((source) => source.id));
   const equivalent = candidates
     .filter((entry) => entry.sourceIds.every((id) => relatedIds.has(id)))

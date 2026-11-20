@@ -8,7 +8,8 @@ const ChatLogSchema = new mongoose.Schema({
   answer: { type: String, default: "" },
   error: { type: String, default: "" },
   totalTokens: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now },
+  // Nhật ký chỉ để phân tích/debug: MongoDB tự xóa sau 180 ngày để collection không phình mãi
+  createdAt: { type: Date, default: Date.now, expires: 180 * 24 * 60 * 60 },
 });
 
 module.exports = mongoose.model("ChatLog", ChatLogSchema);

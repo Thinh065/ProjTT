@@ -5,3 +5,21 @@ export function messageText(message) {
   if (message?.role !== "assistant") return content
   return content.replace(/\n*\*\*Nguồn tham khảo\*\*\n[\s\S]*$/, "")
 }
+
+// AI hay viết "> **Lưu ý:**" rồi các dòng "- …" không có dấu ">" — theo Markdown các ý đó rơi ra ngoài
+// khung ghi chú. Khi hiển thị, nối các dòng liền ngay sau (chưa gặp dòng trống, tiêu đề hay bảng) vào khung.
+export function displayMarkdown(text) {
+  let inQuote = false
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => {
+      if (/^\s*>/.test(line)) {
+        inQuote = true
+        return line
+      }
+      if (inQuote && line.trim() && !/^\s*(?:#|\|)/.test(line)) return `> ${line}`
+      inQuote = false
+      return line
+    })
+    .join("\n")
+}

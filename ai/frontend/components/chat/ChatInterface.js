@@ -7,40 +7,12 @@ import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { apiStream, getStoredUser } from "@/lib/api"
-import { messageText } from "@/lib/chat"
+import { displayMarkdown, messageText } from "@/lib/chat"
 import BotAvatar from "@/components/chat/BotAvatar"
+import markdownComponents from "@/components/chat/markdownComponents"
 
-// Khối code trong câu trả lời Markdown
-const markdownComponents = {
-  pre: ({ node, className, ...props }) => (
-    <pre
-      className={cn(
-        "overflow-x-auto bg-[#1d1530] text-[#f1edff] rounded-[12px] p-3 my-2 text-xs font-mono border border-[rgba(76,29,149,0.2)] [&_code]:bg-transparent [&_code]:text-inherit [&_code]:p-0 [&_code]:border-0 [&_code]:rounded-none [&_code]:text-xs",
-        className
-      )}
-      style={{ maxWidth: "100%" }}
-      {...props}
-    />
-  ),
-  code: ({ node, className, children, ...props }) => {
-    const isBlock = Boolean(className?.includes("language-") || String(children ?? "").includes("\n"))
-    return (
-      <code
-        className={
-          isBlock
-            ? cn("font-mono text-xs", className)
-            : cn(
-                "bg-[#f1edff] text-[#4c1d95] rounded px-1.5 py-0.5 font-mono text-[90%] border border-[rgba(76,29,149,0.12)]",
-                className
-              )
-        }
-        {...props}
-      >
-        {children}
-      </code>
-    )
-  },
-}
+// Server chỉ dùng 50 tin gần nhất làm ngữ cảnh: không gửi cả cuộc trò chuyện dài lên mỗi lần
+const MAX_SENT_MESSAGES = 50
 
 export default function ChatInterface({ bot, chat, onChatUpdate }) {
   const messages = chat?.messages || []
@@ -168,7 +140,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
         // Nhận câu trả lời dạng stream: chữ hiện dần khi AI đang viết
         const last = await apiStream(
           "/api/chatbot/stream",
-          { botId: bot._id, messages: newMessages.map((m) => ({ role: m.role, content: messageText(m) })) },
+          { botId: bot._id, messages: newMessages.slice(-MAX_SENT_MESSAGES).map((m) => ({ role: m.role, content: messageText(m) })) },
           {
             signal: controller.signal,
             onEvent: (event) => {
@@ -311,7 +283,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
                 {msg.role === "assistant" ? (
                   <div className="prose prose-sm break-words max-w-full text-[#1d1530]">
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                      {messageText(msg)}
+                      {displayMarkdown(messageText(msg))}
                     </ReactMarkdown>
                     {msg.sourceChunks && msg.sourceChunks.length > 0 && (
                       <details className="mt-2.5 pt-2 border-t border-[rgba(76,29,149,0.12)]">
@@ -355,7 +327,7 @@ export default function ChatInterface({ bot, chat, onChatUpdate }) {
               >
                 <div className="prose prose-sm break-words max-w-full text-[#1d1530]">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {liveText}
+                    {displayMarkdown(liveText)}
                   </ReactMarkdown>
                 </div>
               </div>
