@@ -3,7 +3,13 @@
 > Đọc file này **trước khi sửa trang chủ**. Mỗi agent khi làm xong hãy **thêm một mục mới ở đầu phần "Nhật ký"** (ai, ngày, đã làm gì, file nào), đừng xoá mục của agent khác.
 > Chạy local: backend `npm --prefix ai/backend run start` (cổng 5000; không có MongoDB thì `run dev:memory`), frontend `npm --prefix ai/frontend run dev` (cổng 3000). Test: `npm --prefix ai/backend test`. Xem thêm `README.md`.
 
-## Trạng thái hiện tại (2026-11-10, cập nhật lần 3 — sau đợt audit dọn code)
+## Trạng thái hiện tại (cập nhật 2026-11-20)
+
+- Mọi thay đổi đã commit và push lên `main`. CI ở `.github/workflows/ci.yml` (test backend cần tải model embedding trước: `npm --prefix ai/backend run prepare:embeddings`).
+- Các việc T2/T3/T4 của Antigravity đã xong. `.agents/` giờ chỉ là thư mục làm việc cục bộ, không còn nằm trong git.
+- Các ghi chú bên dưới (mẫu D sáng, Particles, bẫy WebGL…) vẫn đúng.
+
+## Trạng thái cũ (2026-11-10, cập nhật lần 3 — sau đợt audit dọn code)
 
 - **Claude phụ trách trang chủ** (`ai/frontend/app/page.js`, `ai/frontend/components/landing/**`) theo yêu cầu người dùng.
 - **Chỉ còn một giao diện: mẫu D sáng** (người dùng chốt 2026-11-10). Bộ chọn mẫu D/E/F/Tối, `?mock=`, `?bg=`, bản tối (HeroBackground ASCII + Orb) và nền tối từng phần (SectionBackdrop) **đã gỡ hẳn** trong đợt audit. `.lp` luôn có `data-theme="light"`.
@@ -11,7 +17,7 @@
 - Bản sao lưu trước audit: `C:\Code\_backup\ProjectTT-truoc-audit-20261110\` (`ProjectTT-src.tar` + `git-diff.patch`). Muốn lấy lại file nào đã xóa thì giải nén từ đó.
 - **Chưa commit gì** (nhánh `fix/audit-security-history`). Commit chỉ đứng tên người dùng (Thinh065), không thêm Co-Authored-By.
 
-## Việc đang giao cho Antigravity (`agy` CLI, chạy song song)
+## Việc đã giao cho Antigravity (`agy` CLI) — đã xong, giữ để tra cứu
 
 | Mã | Đề bài | Model | Chỉ được sửa | Báo cáo |
 |---|---|---|---|---|
@@ -53,6 +59,8 @@ Agent làm việc ghi báo cáo vào `.agents/reports/`, **không sửa file nà
 7. Đã nâng `cloudinary` lên SDK v2 (`upload_stream` trực tiếp) và gỡ bỏ các gói `chromadb` / `chromadb-default-embed` / `@huggingface/inference` / `@azure-rest/ai-inference` không còn dùng; bổ sung bảng quản trị Cơ sở tri thức & Bộ nhớ đệm Bot ESH (`GET /api/chatbot/esh-knowledge`, `POST /api/chatbot/esh-cache/clear`).
 
 ## Nhật ký
+
+- **2026-11-20 · Claude (rà soát sau Antigravity)** — Test backend 28/28, `tsc` + `next build` sạch. Sửa CI: job backend thiếu bước tải model embedding (`allowRemoteModels=false` nên thiếu `.cache/models` là test ESH lỗi) → thêm `actions/cache` cho `ai/backend/.cache/models` + `npm run prepare:embeddings`. Gỡ `.agents/` khỏi git (`git rm --cached`, file vẫn còn trên máy; `.gitignore` đã chặn). Cập nhật phần "Trạng thái hiện tại".
 
 - **2026-11-20** — Hoàn thiện luồng quên mật khẩu, bảng quản trị RAG/Cache Bot ESH, gộp `landing-light.css` vào `landing.css`, dọn git worktree và cấu hình GitHub Actions CI:
   - **Backend & Test:** Thêm `resetRequestedAt` trong `models/User.js`, endpoint `POST /api/auth/forgot-password` có rate-limit riêng (`routes/auth.js`), tự động xóa cờ `resetRequestedAt` khi đăng nhập hoặc đổi/đặt lại mật khẩu (`routes/users.js`); thêm `GET /api/chatbot/esh-knowledge` và `POST /api/chatbot/esh-cache/clear` (`routes/chatbot.js`, `utils/localKnowledge.js`); bổ sung test tích hợp trong `test/api.test.js` (28/28 pass).
