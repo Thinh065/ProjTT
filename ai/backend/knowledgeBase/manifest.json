@@ -6,7 +6,7 @@
     "pages": 11,
     "sourceSha256": "9e5f65d5411ab2004a182aff6874c68c11bf1f29d1d9dd5bcca71d114293ba62",
     "referenceSha256": "3224c2258ace44c120a18772136b5accbecd76dd2f5fb2b93554b5db184ac72c",
-    "markdownSha256": "dc1c86966abbd5670bc57b9c562e164e320d8c3e6540bb428ac140e60e9ea652"
+    "markdownSha256": "bf969a272c0cea055da1911cfdbb64a96074f9e2a90e0dbf6dfa14af761a4656"
   },
   "2 - Tuyen sinh ESH.md": {
     "file": "reference-pdfs/2 - Tuyen sinh ESH.pdf",
@@ -15,7 +15,7 @@
     "pages": 4,
     "sourceSha256": "c38201487488ddd2356691b23b8a0d1116ee50ee65923a13d906e416a550a872",
     "referenceSha256": "f605de4d0892a8c8a0e3c238791efaa440e2f904ccbba83dc19b2a886e5c685f",
-    "markdownSha256": "6686a18fd615de2e22fdd40f8ea26bf73180bff9d74eda11145f0d6e54ec4e1a"
+    "markdownSha256": "c176d4931963348fc4eca1ae54faeaa48ddbb3501b3863fa2754dd57d74c0c53"
   },
   "3 - Đội ngũ giáo viên.md": {
     "file": "reference-pdfs/3 - Đội ngũ giáo viên.pdf",
@@ -24,7 +24,7 @@
     "pages": 61,
     "sourceSha256": "6cf43caacfc360fb430f87e66f13d3aed7e08fdf9fad7e47d8c2e4053e355fbd",
     "referenceSha256": "38ba27a77d4c4c1dc9c6b6e05710fe7d3f9435ecd04dd9ad0d509effbdeebe74",
-    "markdownSha256": "4bd5357a0b5c554e4ba380e3d180f67a38d448a119d7dd78a53d7adda3602b44"
+    "markdownSha256": "d8ae583a8467786f7152f98fe1ef5d639d394945b99dcee756ff1c3b5d75a554"
   },
   "4 - Chương trình bổ trợ.md": {
     "file": "reference-pdfs/4 - Chương trình bổ trợ.pdf",
@@ -33,7 +33,7 @@
     "pages": 5,
     "sourceSha256": "e5f7da6315685c734573fc3b066f050425126debc4ce0cf2b9c0d6755303ad70",
     "referenceSha256": "7a7459f060d891ae3398a3bf090b3c691034bab4e196396325fbb116c3b54e7f",
-    "markdownSha256": "668b013b12515532075a3670a47e0d8027904c7b5d1bd1211b4e5fe9d1761815"
+    "markdownSha256": "eed9238ed68cf3d7d17001cf88dc1131c7002a11c9cbe2e8bc01a5d199a0c0f5"
   },
   "5 - Lộ trình học.md": {
     "file": "reference-pdfs/5 - Lộ trình học.pdf",
@@ -42,7 +42,7 @@
     "pages": 5,
     "sourceSha256": "9bf4d29942948d54fa4f7495161cbf07f80a5d6a5ea7b2ac13596580d6e6859d",
     "referenceSha256": "42a69d0a03faa870b0992ef0ba764cb24e859a1399470e92a6fd5bcf7a82b904",
-    "markdownSha256": "b823b7fe51f6659cfd0f003ef7f8619efe2d271fee3cb83793e1d4dc4a02b351"
+    "markdownSha256": "b9957babc8252a048119ae51fdc698746d13773c6ee2a5166330af8d3c414383"
   },
   "Bieu-phi-ESH-nam-hoc-2025-2026.md": {
     "file": "sources/Bieu-phi-ESH-nam-hoc-2025-2026.pdf",
@@ -51,7 +51,7 @@
     "pages": 7,
     "sourceSha256": "2913b16eeb90567581f653f87c9d84a97411050124c4887ea8dd187810689e1a",
     "referenceSha256": "2913b16eeb90567581f653f87c9d84a97411050124c4887ea8dd187810689e1a",
-    "markdownSha256": "230ffe38729e32950da79f7370e8d5add6e93aed7d9c10e28054e46ccaed3920"
+    "markdownSha256": "8aae4f365a2cae2b930cfb6a67d5b2b9e539d5e2a13c3ba3f979a158aeb6cc42"
   },
   "Bieu-phi-VCE-nam-hoc-2025-2026.md": {
     "file": "sources/Bieu-phi-VCE-nam-hoc-2025-2026.pdf",
@@ -60,7 +60,7 @@
     "pages": 7,
     "sourceSha256": "9a5732e3c40b42505a2bc4f66396c0f1092436306dd02bc095a2362741042629",
     "referenceSha256": "9a5732e3c40b42505a2bc4f66396c0f1092436306dd02bc095a2362741042629",
-    "markdownSha256": "16ef3e7adadcb7f9197cf04ae6bc59a34828c39ac6985096daf22802ad09c475"
+    "markdownSha256": "eaf1360365d3f69e9a7d7ab1b5be0c0997185b32bae745c57b1a1934fdbaf4c4"
   },
   "Bieu-phi-xe-bus-nam-hoc-2024-2025.md": {
     "file": "sources/Bieu-phi-xe-bus-nam-hoc-2024-2025.pdf",
@@ -69,7 +69,7 @@
     "pages": 4,
     "sourceSha256": "ee6f23c6a274fd863c26807e2a7433f35d4e493651ec449c09965e81401eb67e",
     "referenceSha256": "ee6f23c6a274fd863c26807e2a7433f35d4e493651ec449c09965e81401eb67e",
-    "markdownSha256": "23260a5c33caa68c73617a7bc79228917f22a727c3e5b070fa5f61c5db858533"
+    "markdownSha256": "fbe35ed681cb361d0bef924a6ca3109ce733b48ad73dde9a8c78be8d81e42559"
   },
   "ESH-Bieu-phi-an-nam-hoc-2025-2026.md": {
     "file": "sources/ESH-Bieu-phi-an-nam-hoc-2025-2026.pdf",
@@ -78,7 +78,7 @@
     "pages": 3,
     "sourceSha256": "b29ad1fd168f8a5f459cedbc96513979446add2317a5d0b127a1e3dd42de0c4f",
     "referenceSha256": "b29ad1fd168f8a5f459cedbc96513979446add2317a5d0b127a1e3dd42de0c4f",
-    "markdownSha256": "22e9c7fe6543c8bbc8be4a532bab4d2ca1bd7dbe5d53a36e346bbd9b07b83e75"
+    "markdownSha256": "6a86806cd9600c74bf53e559375769ae70874e1414cabe95cca482ca02136381"
   },
   "ESH-CVK-Bieu-phi-an-2025-2026.md": {
     "file": "sources/ESH-CVK-Bieu-phi-an-2025-2026.pdf",
@@ -87,7 +87,7 @@
     "pages": 3,
     "sourceSha256": "a4cb0333abec50b045bffa32d5c1ecc01e1065bf734aa7edc5f7e27a4f39ed22",
     "referenceSha256": "a4cb0333abec50b045bffa32d5c1ecc01e1065bf734aa7edc5f7e27a4f39ed22",
-    "markdownSha256": "e48e60a2e3b4f3358d203e7c38f12660cb74378fa65dd1a4a2f335c6cfb94620"
+    "markdownSha256": "771b50f6d3e8d7013cdd539fb49a1167d514e128521250c90d51d389dd0f0e89"
   },
   "Thông tin huấn luyện chatbot.md": {
     "file": "reference-pdfs/Thông tin huấn luyện chatbot.pdf",
@@ -96,7 +96,7 @@
     "pages": 10,
     "sourceSha256": "05dd80a07ff66690c62e7778471c42d0000cd3b8426e1c1a778e023899a1f6a9",
     "referenceSha256": "a7373680a43e2a3c4fa8180eb9535978af87234c2264675c775f8db32f3ea0b0",
-    "markdownSha256": "eb00bc5fb7af2f2a7209cafd2282c1fd026b847b3392f84c0d1398e95912b42b"
+    "markdownSha256": "90759ffd6f914a481752faa99d3c71b7f9de3a4a71222c3f65393ff857db57f6"
   },
   "VCE-Bieu-phi-an-nam-hoc-2025-2026.md": {
     "file": "sources/VCE-Bieu-phi-an-nam-hoc-2025-2026.pdf",
@@ -105,6 +105,6 @@
     "pages": 3,
     "sourceSha256": "e1c0eda76ff437bc552fe9845de8c139a769757a4d2922a9234edd55ffa8662d",
     "referenceSha256": "e1c0eda76ff437bc552fe9845de8c139a769757a4d2922a9234edd55ffa8662d",
-    "markdownSha256": "048cecaa9a09820724eb0af1d0b313e27e1cf4158c7cf4f23b1947ef9315bae3"
+    "markdownSha256": "b2271ab60a88da20640363c345b2bf4737ff45ec3fed3c33f83f09e3dc0e5d9d"
   }
 }

@@ -99,7 +99,8 @@ def main():
                 raise RuntimeError(f"No extractable text in {pdf.name}, page {number}")
             pages.append(f"## {pdf.stem} — Trang {number}\n\n{text.strip()}\n")
         markdown = CHUNKS / f"{source.stem}.md"
-        markdown.write_text("\n".join(pages), encoding="utf-8")
+        # Luôn ghi LF (kể cả trên Windows) để mã băm khớp với bản Node.js kiểm tra trên mọi hệ điều hành
+        markdown.write_text("\n".join(pages), encoding="utf-8", newline="\n")
         manifest[markdown.name] = {
             "file": pdf.relative_to(ROOT).as_posix(),
             "original": source.relative_to(ROOT).as_posix(),

@@ -52,7 +52,8 @@ function readKnowledge() {
   }
   const documents = files.map((file) => {
     const text = fs.readFileSync(path.join(DOCS_DIR, file), "utf8");
-    if (!manifest[file] || hash(text) !== manifest[file].markdownSha256) {
+    // Băm theo xuống dòng LF: git trên Windows (core.autocrlf) checkout ra CRLF, Linux/Docker/CI giữ LF
+    if (!manifest[file] || hash(text.replace(/\r\n/g, "\n")) !== manifest[file].markdownSha256) {
       throw new Error("Knowledge base cần được chuẩn bị lại bằng scripts/buildKnowledgeReferences.py để xác minh số trang.");
     }
     return { file, text };
