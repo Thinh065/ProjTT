@@ -25,7 +25,13 @@ const app = require("./app");
 mongoose.set("bufferCommands", false);
 mongoose
   .connect(process.env.MONGO_URI, { dbName: process.env.MONGO_DB_NAME })
-  .then(() => console.log("MongoDB connected"))
+  .then(() => {
+    console.log("MongoDB connected");
+    // Khởi tạo tokensUsed cho tài khoản cũ trước khi server bắt đầu cộng dồn token
+    require("./utils/tokenUsage").backfillTokensUsed()
+      .then((count) => count && console.log(`Đã khởi tạo thống kê token cho ${count} tài khoản cũ`))
+      .catch((err) => console.error("Không khởi tạo được thống kê token:", err.message));
+  })
   .catch((err) => console.error("MongoDB connection error:", err.message));
 
 const PORT = process.env.PORT || 5000;

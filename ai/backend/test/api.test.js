@@ -106,8 +106,13 @@ test("users can only edit themselves; admins cannot change their own role", asyn
 test("change-password requires the current password for self", async () => {
   const wrong = await api(`/api/users/${bob.id}/change-password`, { method: "POST", token: bob.token, body: { currentPassword: "xxxxxx", newPassword: "newpass1" } });
   assert.equal(wrong.status, 400);
+  const oldToken = bob.token;
   const ok = await api(`/api/users/${bob.id}/change-password`, { method: "POST", token: bob.token, body: { currentPassword: "secret123", newPassword: "newpass1" } });
   assert.equal(ok.status, 200);
+  // Đổi mật khẩu: phiên cũ hết hiệu lực ngay, chính chủ nhận token mới để không bị đăng xuất
+  assert.equal((await api("/api/auth/me", { token: oldToken })).status, 401);
+  assert.ok(ok.data.token);
+  assert.equal((await api("/api/auth/me", { token: ok.data.token })).status, 200);
   const login = await api("/api/auth/login", { method: "POST", body: { email: "bob@example.com", password: "newpass1" } });
   assert.equal(login.status, 200);
 
@@ -125,8 +130,13 @@ test("change-password requires the current password for self", async () => {
   // Admin đặt lại mật khẩu tạm sẽ tự động xóa cờ resetRequestedAt
   const adminReset = await api(`/api/users/${bob.id}/change-password`, { method: "POST", token: admin.token, body: { newPassword: "newpass1" } });
   assert.equal(adminReset.status, 200);
+  assert.equal(adminReset.data.token, undefined); // admin đặt lại hộ: không cấp token của người khác
+  assert.equal((await api("/api/auth/me", { token: login.data.token })).status, 401);
   const usersAfter = await api("/api/auth/users", { token: admin.token });
   assert.equal(usersAfter.data.find((u) => u._id === bob.id)?.resetRequestedAt, null);
+
+  // Các test sau tiếp tục dùng tài khoản bob với phiên mới
+  bob.token = (await api("/api/auth/login", { method: "POST", body: { email: "bob@example.com", password: "newpass1" } })).data.token;
 });
 
 test("chat history is private to its owner and visible to admins", async () => {
@@ -163,8 +173,9 @@ test("chat history is private to its owner and visible to admins", async () => {
   assert.equal(asAdmin.data.chats.length, 1);
   assert.equal(asAdmin.data.totalTokens, 12);
 
+  // Số token trình duyệt tự khai khi lưu lịch sử (12) không được tính vào thống kê của admin
   const stats = await api("/api/auth/users", { token: admin.token });
-  assert.equal(stats.data.find((u) => u._id === alice.id).totalTokens, 12);
+  assert.equal(stats.data.find((u) => u._id === alice.id).totalTokens, 0);
 
   assert.equal((await api(`/api/chat/history/${chatId}`, { method: "PUT", token: alice.token, body: { title: "Mới" } })).status, 200);
   assert.equal((await api(`/api/chat/history/${chatId}`, { method: "DELETE", token: alice.token })).status, 200);
@@ -225,6 +236,24 @@ test("chatbot endpoint validates the message list", async () => {
     body: { botId: "esh-bot", messages: [{ role: "assistant", content: "hi" }] },
   });
   assert.equal(endsWithAssistant.status, 400);
+});
+
+test("image upload is admin-only and registration ignores a client-supplied avatar link", async () => {
+  const form = () => {
+    const data = new FormData();
+    data.append("image", new Blob([Buffer.from("89504e47", "hex")], { type: "image/png" }), "a.png");
+    return data;
+  };
+  const upload = (headers = {}) => fetch(`${base}/api/upload/avatar`, { method: "POST", headers, body: form() });
+  assert.equal((await upload()).status, 401);
+  assert.equal((await upload({ Authorization: `Bearer ${alice.token}` })).status, 403);
+
+  const reg = await api("/api/auth/register", {
+    method: "POST",
+    body: { name: "Mallory", email: "mallory@example.com", password: "secret123", avatar: "javascript:alert(1)" },
+  });
+  assert.equal(reg.status, 201);
+  assert.equal(reg.data.user.avatar, "");
 });
 
 test("malformed JSON gets a 400, unknown routes a 404", async () => {
@@ -337,6 +366,11 @@ test("admins can edit a bot, check its health, and users can stream answers from
     assert.equal(done.type, "done");
     assert.equal(done.message, "Xin chào");
     assert.deepEqual(done.tokens, { input: 3, output: 2, total: 5 });
+
+    // Server tự cộng token thật của 2 lần gọi (5 + 5) vào tài khoản — không dựa vào số trình duyệt gửi
+    await new Promise((resolve) => setTimeout(resolve, 50)); // ghi thống kê chạy nền
+    const usage = await api("/api/auth/users", { token: owner.token });
+    assert.equal(usage.data.find((u) => u._id === user.id).totalTokens, 10);
 
     // Stream lỗi: trả sự kiện error thay vì làm treo kết nối
     await api(`/api/apikeys/${id}`, { method: "PATCH", token: owner.token, body: { model: "dead-model" } });

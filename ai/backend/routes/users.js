@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
-const { auth, requireAdmin } = require("../middleware/auth");
+const { auth, requireAdmin, signToken } = require("../middleware/auth");
 const { uploadUserAvatar } = require("../middleware/cloudinary");
 const asyncHandler = require("../utils/asyncHandler");
 
@@ -128,8 +128,11 @@ router.post(
 
     user.password = await bcrypt.hash(String(newPassword), 10);
     user.resetRequestedAt = null;
+    // Mọi phiên đăng nhập cũ (kể cả của kẻ đã biết mật khẩu cũ) hết hiệu lực ngay
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
     await user.save();
-    res.json({ message: "Đổi mật khẩu thành công" });
+    // Chính chủ tự đổi: cấp token mới để phiên hiện tại không bị đăng xuất
+    res.json({ message: "Đổi mật khẩu thành công", ...(isSelf && { token: signToken(user) }) });
   })
 );
 

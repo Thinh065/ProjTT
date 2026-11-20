@@ -1,11 +1,11 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
-const { auth, requireAdmin } = require("../middleware/auth");
+const { auth, requireAdmin, signToken } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
 const rateLimit = require("../utils/rateLimit");
+const { backfillTokensUsed } = require("../utils/tokenUsage");
 
 const router = express.Router();
 
@@ -41,7 +41,8 @@ router.post(
   "/register",
   registerLimiter,
   asyncHandler(async (req, res) => {
-    const { name, password, avatar } = req.body;
+    // Không nhận link ảnh tùy ý lúc đăng ký: ảnh đại diện được tải lên sau khi có tài khoản (/api/users/:id/avatar)
+    const { name, password } = req.body;
     const email = (req.body.email || "").trim().toLowerCase();
 
     if (!name || !email || !password) {
@@ -64,7 +65,8 @@ router.post(
       name: String(name).trim(),
       email,
       password: hash,
-      avatar: typeof avatar === "string" ? avatar : "",
+      avatar: "",
+      tokensUsed: 0,
       role: "user",
       status: "active",
     });
@@ -99,9 +101,7 @@ router.post(
       await User.updateOne({ _id: user._id }, { $set: { resetRequestedAt: null } });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = signToken(user);
 
     res.json({ token, user: publicUser(user) });
   })
@@ -139,7 +139,8 @@ router.get(
   auth,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const users = await User.find().select("-password").sort({ createdAt: -1 }).lean();
+    await backfillTokensUsed();
+    const users = await User.find().select("-password -tokenVersion").sort({ createdAt: -1 }).lean();
     const stats = await ChatHistory.aggregate([
       {
         $group: {
@@ -150,10 +151,11 @@ router.get(
       },
     ]);
     const byUser = new Map(stats.map((s) => [String(s._id), s]));
+    // Tổng token lấy từ tokensUsed do server ghi nhận, không phải số trình duyệt gửi khi lưu lịch sử
     res.json(
-      users.map((u) => ({
+      users.map(({ tokensUsed, ...u }) => ({
         ...u,
-        totalTokens: byUser.get(String(u._id))?.totalTokens || 0,
+        totalTokens: tokensUsed || 0,
         chatCount: byUser.get(String(u._id))?.chatCount || 0,
       }))
     );

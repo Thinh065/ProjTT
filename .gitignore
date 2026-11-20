@@ -29,3 +29,9 @@
 /*.pdf
 /Ban_giao_ung_tuyen_*.md
 /tmp/
+
+# Kết quả công cụ graphify (sơ đồ code, tạo lại được)
+graphify-out/
+
+# Tài liệu báo cáo thực tập / tài liệu công ty: chỉ giữ trên máy, không đưa lên GitHub
+BaoCao/

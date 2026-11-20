@@ -83,6 +83,8 @@ export default function ProfilePage() {
         },
       })
       if (!ok) throw new Error(data.message)
+      // Đổi mật khẩu làm mọi phiên cũ hết hiệu lực; server cấp token mới cho phiên đang dùng
+      if (data.token) localStorage.setItem("token", data.token)
       setFormData({
         ...formData,
         currentPassword: "",

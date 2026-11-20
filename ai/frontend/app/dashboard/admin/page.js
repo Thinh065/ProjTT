@@ -339,7 +339,7 @@ export default function AdminPage() {
     try {
       const formData = new FormData()
       formData.append("image", file)
-      const { ok, data } = await apiFetch("/api/upload/avatar", { method: "POST", body: formData, auth: false })
+      const { ok, data } = await apiFetch("/api/upload/avatar", { method: "POST", body: formData })
       if (formSessionRef.current !== sessionId) return
       if (ok && data.url) setAiForm((f) => ({ ...f, image: data.url }))
       else notify(data?.message || "Upload ảnh thất bại")

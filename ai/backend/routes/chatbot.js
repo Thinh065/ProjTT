@@ -1,6 +1,7 @@
 const express = require("express");
 const ApiKey = require("../models/ApiKey");
 const AnswerCache = require("../models/EshAnswerCache");
+const User = require("../models/User");
 const { auth, requireAdmin } = require("../middleware/auth");
 const asyncHandler = require("../utils/asyncHandler");
 const rateLimit = require("../utils/rateLimit");
@@ -16,6 +17,16 @@ const MAX_CONTENT_LENGTH = 20_000;
 
 // Mỗi tài khoản tối đa 30 tin nhắn/phút (tránh đốt quota API)
 const chatLimiter = rateLimit({ name: "chat", windowMs: 60 * 1000, max: 30, key: (req) => req.user.id });
+
+// Cộng số token thật (do nhà cung cấp AI trả về) vào tài khoản; trang quản trị thống kê theo số này.
+// Không chờ: lỗi ghi thống kê không được làm hỏng câu trả lời.
+function recordUsage(userId, tokens) {
+  const total = Math.max(0, Number(tokens?.total) || 0);
+  if (!total) return;
+  User.updateOne({ _id: userId }, { $inc: { tokensUsed: total } }).catch((err) =>
+    console.error("Không ghi được số token đã dùng:", err.message)
+  );
+}
 
 // Chỉ giữ role/content hợp lệ, cắt bớt cho an toàn
 function sanitizeMessages(messages) {
@@ -72,6 +83,7 @@ router.post(
       const result = input.bot
         ? await callBot(input.bot, input.messages)
         : await callEshBot(input.messages, req.user.id);
+      recordUsage(req.user.id, result.tokens);
       res.json(result);
     } catch (err) {
       const known = publicError(err);
@@ -113,6 +125,7 @@ router.post(
         ? await streamBot(input.bot, input.messages, (text) => send({ type: "delta", text }), { signal: controller.signal })
         : await callEshBot(input.messages, req.user.id);
       if (!input.bot) send({ type: "delta", text: result.message });
+      recordUsage(req.user.id, result.tokens);
       send({ type: "done", ...result });
     } catch (err) {
       if (!controller.signal.aborted) {

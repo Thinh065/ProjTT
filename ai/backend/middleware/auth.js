@@ -18,6 +18,10 @@ const auth = async (req, res, next) => {
     if (user.status === "blocked") {
       return res.status(403).json({ message: "Tài khoản đã bị khóa" });
     }
+    // Mật khẩu đã đổi sau khi token được cấp → token cũ không còn hiệu lực
+    if ((decoded.tv ?? 0) !== (user.tokenVersion ?? 0)) {
+      return res.status(401).json({ message: "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" });
+    }
 
     req.user = {
       ...user,
@@ -37,6 +41,11 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+// Cấp JWT; tv = tokenVersion để đổi mật khẩu là vô hiệu hóa các phiên cũ
+const signToken = (user) =>
+  jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion ?? 0 }, process.env.JWT_SECRET, { expiresIn: "7d" });
+
 module.exports = auth;
+module.exports.signToken = signToken;
 module.exports.auth = auth;
 module.exports.requireAdmin = requireAdmin;

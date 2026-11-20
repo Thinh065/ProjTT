@@ -18,12 +18,13 @@ import "@/components/landing/landing.css"
 
 export default function RegisterPage() {
   const [avatarPreview, setAvatarPreview] = useState("")
+  // Ảnh chỉ được tải lên sau khi tạo tài khoản thành công (server không nhận upload ẩn danh)
+  const [avatarFile, setAvatarFile] = useState(null)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
     confirmPassword: "",
-    avatar: "",
   })
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -36,19 +37,32 @@ export default function RegisterPage() {
     if (email) setFormData((prev) => ({ ...prev, email }))
   }, [])
 
-  const handleAvatarChange = async (e) => {
+  const handleAvatarChange = (e) => {
     const file = e.target.files?.[0]
     if (file) {
       setAvatarPreview(URL.createObjectURL(file))
-      const form = new FormData()
-      form.append("image", file)
-      const { data } = await apiFetch("/api/upload/avatar", { method: "POST", body: form, auth: false })
-      if (data.url) {
-        setFormData((prev) => ({ ...prev, avatar: data.url }))
-      } else {
-        console.warn("Avatar upload error:", data.message)
-      }
+      setAvatarFile(file)
     }
+  }
+
+  // Sau khi đăng ký: đăng nhập tạm để tải ảnh đại diện lên tài khoản vừa tạo. Lỗi ảnh không làm hỏng đăng ký.
+  const uploadAvatarAfterRegister = async () => {
+    if (!avatarFile) return
+    const login = await apiFetch("/api/auth/login", {
+      method: "POST",
+      auth: false,
+      body: { email: formData.email, password: formData.password },
+    })
+    if (!login.ok || !login.data?.token) return
+    const form = new FormData()
+    form.append("avatar", avatarFile)
+    const upload = await apiFetch(`/api/users/${login.data.user._id}/avatar`, {
+      method: "POST",
+      auth: false,
+      headers: { Authorization: `Bearer ${login.data.token}` },
+      body: form,
+    })
+    if (!upload.ok) console.warn("Avatar upload error:", upload.data?.message)
   }
 
   const handleChange = (e) => {
@@ -73,10 +87,10 @@ export default function RegisterPage() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          avatar: formData.avatar,
         },
       })
       if (!ok) throw new Error(data.message)
+      await uploadAvatarAfterRegister()
       showConfirm({
         message: "Đăng ký thành công! Vui lòng đăng nhập.",
         onlyClose: true,

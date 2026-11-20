@@ -50,7 +50,7 @@ const databaseUnavailable = (res) =>
   res.status(503).json({ message: "Backend chưa kết nối được MongoDB. Vui lòng thử lại sau." });
 
 app.use(
-  ["/api/auth", "/api/users", "/api/apikeys", "/api/chatbot", "/api/chat/history"],
+  ["/api/auth", "/api/users", "/api/upload", "/api/apikeys", "/api/chatbot", "/api/chat/history"],
   (req, res, next) => {
     if (mongoose.connection.readyState !== mongoose.STATES.connected) return databaseUnavailable(res);
     next();
